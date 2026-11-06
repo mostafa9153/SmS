@@ -83,14 +83,14 @@ export default function LibraryDeskPage() {
             />
           ) : desk.chip ? (
             <div className="rounded-xl border border-primary/40 bg-primary/5 px-3 py-2 text-sm font-medium">
-              {desk.chip.title} ({desk.chip.code}): card scan করুন
+              {desk.chip.title} ({desk.chip.code}): scan the card
             </div>
           ) : (
-            !desk.panel && <p className="py-12 text-center text-sm text-muted-foreground">Card বা বইয়ের sticker scan করুন</p>
+            !desk.panel && <p className="py-12 text-center text-sm text-muted-foreground">Scan a card or book sticker</p>
           )}
         </div>
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground">আজকের লেনদেন</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground">Today&apos;s activity</h2>
           <ActivityList
             activity={desk.activity}
             onUndo={desk.undo}

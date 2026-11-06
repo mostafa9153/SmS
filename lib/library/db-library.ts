@@ -700,13 +700,13 @@ export async function planImport(entries: import("./import").ImportEntry[]): Pro
   return entries.map((entry) => {
     const matches = findDuplicates(entry.book, existing);
     if (!matches.length) return { kind: "new" as const, entry };
-    if (matches.length > 1) return { kind: "skip" as const, entry, reason: `একাধিক মিল: ${matches.map((m) => m.book_code).join(", ")}` };
+    if (matches.length > 1) return { kind: "skip" as const, entry, reason: `Multiple matches: ${matches.map((m) => m.book_code).join(", ")}` };
     const [m] = matches;
     if (m.status !== "active") return { kind: "skip" as const, entry, reason: `${m.book_code} withdrawn` };
-    if (entry.copies < 1) return { kind: "skip" as const, entry, reason: `আগে থেকে আছে (${m.book_code})` };
+    if (entry.copies < 1) return { kind: "skip" as const, entry, reason: `Already exists (${m.book_code})` };
     // Two file entries landing on one existing title: the second is a duplicate of the first.
     const earlier = addedTo.get(m.id);
-    if (earlier !== undefined) return { kind: "skip" as const, entry, reason: `সারি ${earlier}-এর সাথে একই বই (${m.book_code})` };
+    if (earlier !== undefined) return { kind: "skip" as const, entry, reason: `Same book as row ${earlier} (${m.book_code})` };
     addedTo.set(m.id, entry.rows[0]);
     return { kind: "add" as const, entry, bookId: m.id, bookCode: m.book_code, existingTitle: m.title };
   });

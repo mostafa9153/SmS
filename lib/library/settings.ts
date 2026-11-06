@@ -91,9 +91,9 @@ export function loanRulesFor(settings: LibrarySettings, type: BorrowerType): Loa
 /** Why a code prefix is not allowed, or null. Shown under the field as the user types (C8). */
 export function prefixProblem(raw: string): string | null {
   const v = raw.trim();
-  if (!v) return "Prefix লিখুন";
-  if (!/^[A-Za-z]+$/.test(v)) return "শুধু ইংরেজি অক্ষর";
-  if (v.length > 4) return "সর্বোচ্চ ৪টি অক্ষর";
+  if (!v) return "Enter a prefix";
+  if (!/^[A-Za-z]+$/.test(v)) return "English letters only";
+  if (v.length > 4) return "At most 4 letters";
   return null;
 }
 
@@ -108,11 +108,11 @@ export function settingsProblems(s: LibrarySettings): SettingsErrors {
   const prefix = prefixProblem(s.codePrefix);
   if (prefix) errors.codePrefix = prefix;
   for (const type of ["student", "staff"] as const) {
-    if (s[type].renewWindowDays > s[type].loanDays) errors[`${type}.renewWindowDays`] = "Loan-এর দিনের চেয়ে বেশি হতে পারে না";
+    if (s[type].renewWindowDays > s[type].loanDays) errors[`${type}.renewWindowDays`] = "Cannot exceed loan days";
   }
   s.holidays.forEach((h, i) => {
-    if (h.from > h.to) errors[`holidays.${i}`] = "শুরু শেষের পরে";
-    else if (Number.isNaN(Date.parse(h.from)) || Number.isNaN(Date.parse(h.to))) errors[`holidays.${i}`] = "তারিখ ঠিক নেই";
+    if (h.from > h.to) errors[`holidays.${i}`] = "Start is after end";
+    else if (Number.isNaN(Date.parse(h.from)) || Number.isNaN(Date.parse(h.to))) errors[`holidays.${i}`] = "Invalid date";
   });
   const grid = gridProblems(s.sticker);
   if (grid.length) errors.sticker = grid.join(" · ");
@@ -127,12 +127,12 @@ const SETTING_KEYS = Object.keys(librarySettingsSchema.shape);
 export function validateSettings(raw: unknown): SettingsCheck {
   if (raw && typeof raw === "object") {
     const missing = SETTING_KEYS.filter((k) => !(k in (raw as object)));
-    if (missing.length) return { ok: false, errors: Object.fromEntries(missing.map((k) => [k, "নেই"])) };
+    if (missing.length) return { ok: false, errors: Object.fromEntries(missing.map((k) => [k, "Missing"])) };
   }
   const parsed = librarySettingsSchema.safeParse(raw);
   if (!parsed.success) {
     const errors: SettingsErrors = {};
-    for (const issue of parsed.error.issues) errors[issue.path.join(".") || "_"] ??= "মান ঠিক নেই";
+    for (const issue of parsed.error.issues) errors[issue.path.join(".") || "_"] ??= "Invalid value";
     return { ok: false, errors };
   }
   const errors = settingsProblems(parsed.data);
@@ -145,9 +145,9 @@ export function validateSettings(raw: unknown): SettingsCheck {
  * Two admins editing different settings do not overwrite each other.
  */
 export function validateSettingsPatch(current: LibrarySettings, changes: unknown): SettingsCheck {
-  if (!changes || typeof changes !== "object" || Array.isArray(changes)) return { ok: false, errors: { _: "মান ঠিক নেই" } };
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) return { ok: false, errors: { _: "Invalid value" } };
   const unknown = Object.keys(changes).filter((k) => !SETTING_KEYS.includes(k));
-  if (unknown.length) return { ok: false, errors: Object.fromEntries(unknown.map((k) => [k, "অজানা setting"])) };
+  if (unknown.length) return { ok: false, errors: Object.fromEntries(unknown.map((k) => [k, "Unknown setting"])) };
   return validateSettings({ ...current, ...(changes as object) });
 }
 

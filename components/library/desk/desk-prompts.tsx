@@ -22,12 +22,12 @@ export function DeskNoticeBar({
       <span className="flex-1 font-medium">{notice.text}</span>
       {notice.kind === "pass_on" && notice.toName && (
         <Button size="sm" onClick={() => onPassOn(notice)}>
-          {notice.toName}-কে দিন
+          Issue to {notice.toName}
         </Button>
       )}
       {notice.kind === "withdrawn" && (
         <Button size="sm" variant="outline" onClick={() => onRestore(notice.copyId)}>
-          Shelf-এ ফেরত
+          Back to shelf
         </Button>
       )}
       <Button size="sm" variant="ghost" onClick={onDismiss}>
@@ -40,7 +40,7 @@ export function DeskNoticeBar({
 export function DeskChoices({ choices, onPick }: { choices: DeskChoice[]; onPick: (c: DeskChoice) => void }) {
   return (
     <div className="space-y-1.5 rounded-xl border bg-card p-3">
-      <p className="text-sm font-semibold">একাধিক মিল, বাছাই করুন</p>
+      <p className="text-sm font-semibold">Multiple matches, pick one</p>
       {choices.map((c) => (
         <Button key={c.key} variant="outline" className="w-full justify-between" onClick={() => onPick(c)}>
           <span>{c.name}</span>
@@ -70,22 +70,22 @@ export function DeskPromptBar({
     <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
       {prompt.kind === "found" ? (
         <>
-          <p className="text-sm font-semibold">{prompt.title} হারানো ছিল। কোথায় পাওয়া গেল?</p>
+          <p className="text-sm font-semibold">{prompt.title} was lost. Where was it found?</p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => onFound("borrower")}>
-              Borrower ফেরত দিয়েছেন
+              Returned by borrower
             </Button>
             <Button size="sm" variant="outline" onClick={() => onFound("library")}>
-              Library-তেই ছিল
+              Was in the library
             </Button>
             <Button size="sm" variant="ghost" onClick={onCancel}>
-              বাতিল
+              Cancel
             </Button>
           </div>
         </>
       ) : (
         <>
-          <p className="text-sm font-semibold">{prompt.title} ক্ষতিগ্রস্ত</p>
+          <p className="text-sm font-semibold">{prompt.title} damaged</p>
           <div className="flex flex-wrap items-center gap-2">
             <Input
               autoFocus
@@ -97,13 +97,13 @@ export function DeskPromptBar({
             />
             <label className="flex items-center gap-1.5 text-sm">
               <input type="checkbox" checked={withdraw} onChange={(e) => setWithdraw(e.target.checked)} />
-              Withdraw করো
+              Withdraw
             </label>
             <Button size="sm" disabled={!Number.isFinite(value) || value <= 0} onClick={() => onDamaged(value, withdraw)}>
-              নিশ্চিত
+              Confirm
             </Button>
             <Button size="sm" variant="ghost" onClick={onCancel}>
-              বাতিল
+              Cancel
             </Button>
           </div>
         </>

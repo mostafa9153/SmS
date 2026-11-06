@@ -1,5 +1,5 @@
 import { TablePageSkeleton } from "@/components/ui/page-skeletons";
 
 export default function MyBooksLoading() {
-  return <TablePageSkeleton title="আমার বই" columns={3} />;
+  return <TablePageSkeleton title="My books" columns={3} />;
 }

@@ -34,7 +34,7 @@ function FinesPage() {
           <div className="flex rounded-lg border p-0.5">
             {(["due", "day"] as const).map((t) => (
               <Button key={t} size="sm" variant={f.tab === t ? "default" : "ghost"} onClick={() => f.setTab(t)}>
-                {t === "due" ? "বাকি" : "দৈনিক হিসাব"}
+                {t === "due" ? "Due" : "Daily report"}
               </Button>
             ))}
           </div>
@@ -46,11 +46,11 @@ function FinesPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
           <div className="space-y-3">
-            <SearchInput value={f.q} onChange={f.setQ} placeholder="নাম, class বা ID" />
+            <SearchInput value={f.q} onChange={f.setQ} placeholder="Name, class or ID" />
             {f.debtors.isLoading ? (
-              <Spinner label="লোড হচ্ছে…" className="py-16" />
+              <Spinner label="Loading…" className="py-16" />
             ) : list.length === 0 ? (
-              <EmptyState icon={HandCoins} title={f.q.trim() ? "কিছু পাওয়া যায়নি" : "কারও কোনো বাকি নেই"} />
+              <EmptyState icon={HandCoins} title={f.q.trim() ? "No results" : "Nothing due"} />
             ) : (
               <ul className="space-y-1.5">
                 {list.map((d) => (
@@ -77,7 +77,7 @@ function FinesPage() {
           {f.selected ? (
             <LedgerPanel f={f} />
           ) : (
-            <p className="py-16 text-center text-sm text-muted-foreground">বাম দিক থেকে borrower বাছাই করুন</p>
+            <p className="py-16 text-center text-sm text-muted-foreground">Select a borrower</p>
           )}
         </div>
       )}

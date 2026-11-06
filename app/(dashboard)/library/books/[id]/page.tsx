@@ -19,11 +19,11 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
   const d = useBookDetail(id);
   const book = d.book.data;
 
-  if (d.book.isLoading) return <Spinner label="লোড হচ্ছে…" className="py-24" />;
+  if (d.book.isLoading) return <Spinner label="Loading…" className="py-24" />;
   if (!book) {
     return (
       <div className="p-6">
-        <EmptyState icon={BookX} title="বইটা পাওয়া যায়নি" />
+        <EmptyState icon={BookX} title="Book not found" />
       </div>
     );
   }
@@ -34,7 +34,7 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
     book.publisher,
     book.category,
     book.language,
-    book.edition && `সংস্করণ ${book.edition}`,
+    book.edition && `Edition ${book.edition}`,
     book.isbn && `ISBN ${book.isbn}`,
     book.legacy_no && `Acc. ${book.legacy_no}`,
   ].filter(Boolean);
@@ -59,20 +59,20 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
               </Link>
             )}
             <Button variant="outline" onClick={() => d.setEditing(true)}>
-              <Pencil /> সম্পাদনা
+              <Pencil /> Edit
             </Button>
             {!withdrawn && (
               <Button onClick={() => d.setAddingCopies(true)}>
-                <CopyPlus /> কপি যোগ
+                <CopyPlus /> Add copies
               </Button>
             )}
             {book.deletable ? (
               <Button variant="destructive" onClick={d.remove} disabled={d.busy}>
-                <Trash2 /> মুছে ফেলো
+                <Trash2 /> Delete
               </Button>
             ) : (
               <Button variant="outline" onClick={() => d.setTitleWithdrawn(!withdrawn)} disabled={d.busy}>
-                {withdrawn ? <ArchiveRestore /> : <Archive />} {withdrawn ? "আবার সক্রিয় করো" : "Withdraw"}
+                {withdrawn ? <ArchiveRestore /> : <Archive />} {withdrawn ? "Restore" : "Withdraw"}
               </Button>
             )}
           </>
@@ -82,14 +82,14 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
       {details.length > 0 && <p className="text-sm text-muted-foreground">{details.join(" · ")}</p>}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Shelf-এ" value={book.stock.onShelf} />
-        <StatCard label="ধার দেওয়া" value={book.stock.onLoan} />
-        <StatCard label="হারানো" value={book.stock.lost} />
-        <StatCard label="মোট কপি" value={book.stock.total} />
+        <StatCard label="On shelf" value={book.stock.onShelf} />
+        <StatCard label="On loan" value={book.stock.onLoan} />
+        <StatCard label="Lost" value={book.stock.lost} />
+        <StatCard label="Total copies" value={book.stock.total} />
       </div>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-bold">কপি</h2>
+        <h2 className="text-sm font-bold">Copies</h2>
         {book.copies.length ? (
           <CopiesTable copies={book.copies} busyId={d.busyCopy} onWithdraw={d.withdrawCopy}
             onRestore={d.restoreCopy}
@@ -98,12 +98,12 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
             lostHolder={new Map(book.history.filter((h) => h.outcome === "lost").reverse().map((h) => [h.code, h.borrower]))}
           />
         ) : (
-          <EmptyState icon={CopyPlus} title="কোনো কপি নেই" compact />
+          <EmptyState icon={CopyPlus} title="No copies" compact />
         )}
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-bold">ধারের ইতিহাস</h2>
+        <h2 className="text-sm font-bold">Loan history</h2>
         <LoanHistory history={book.history} />
       </section>
 

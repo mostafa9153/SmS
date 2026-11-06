@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const field = p.get("field");
     const code = p.get("code") ?? "";
     if ((field !== "school_id" && field !== "pen") || code.length > 200) {
-      return NextResponse.json({ success: false, error: "অনুরোধ ঠিক নেই।" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Invalid request." }, { status: 400 });
     }
     return NextResponse.json({ success: true, data: await scannerTestLookup(field, code) });
   } catch (err) {

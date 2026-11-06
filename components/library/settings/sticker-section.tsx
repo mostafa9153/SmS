@@ -16,14 +16,14 @@ export function StickerSection({ s }: { s: LibrarySettingsState }) {
   return (
     <FormSection title="Sticker sheet (A4)" icon={<Tags className="h-4 w-4" />}>
       <FormGrid>
-        {f("cols", "কলাম")}
-        {f("rows", "সারি")}
-        {f("widthMm", "Sticker চওড়া", 0.5)}
-        {f("heightMm", "Sticker উচ্চতা", 0.5)}
-        {f("gapXMm", "আড়াআড়ি ফাঁক", 0.5)}
-        {f("gapYMm", "লম্বালম্বি ফাঁক", 0.5)}
+        {f("cols", "Columns")}
+        {f("rows", "Rows")}
+        {f("widthMm", "Sticker width", 0.5)}
+        {f("heightMm", "Sticker height", 0.5)}
+        {f("gapXMm", "Horizontal gap", 0.5)}
+        {f("gapYMm", "Vertical gap", 0.5)}
       </FormGrid>
-      <p className="text-sm tabular-nums text-muted-foreground">প্রতি sheet-এ {perSheet(g)}টি</p>
+      <p className="text-sm tabular-nums text-muted-foreground">{perSheet(g)} per sheet</p>
       {s.errors.sticker && <p className="text-sm text-destructive">{s.errors.sticker}</p>}
     </FormSection>
   );

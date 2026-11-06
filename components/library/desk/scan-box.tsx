@@ -65,7 +65,7 @@ export function ScanBox({
             autoFocus
             autoComplete="off"
             spellCheck={false}
-            placeholder="Scan বা লিখুন: বইয়ের code, School ID, PEN"
+            placeholder="Scan or type: book code, School ID, PEN"
             aria-label="Scan code"
             className="h-14 w-full bg-transparent text-lg font-medium outline-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground"
           />
@@ -76,7 +76,7 @@ export function ScanBox({
           size="icon"
           className="h-14 w-14 rounded-2xl"
           disabled={!cameraOk}
-          title={cameraOk ? "Camera" : "HTTPS লাগবে"}
+          title={cameraOk ? "Camera" : "Needs HTTPS"}
           onClick={() => setCameraOpen(true)}
         >
           <Camera />

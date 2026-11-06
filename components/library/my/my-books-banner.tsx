@@ -27,7 +27,7 @@ export function MyBooksBanner() {
     >
       <BookOpen className="h-4 w-4 shrink-0" />
       <span className="flex-1">
-        {late ? `${data.overdue}টি বই overdue` : data.dueSoon > 0 ? `${data.dueSoon}টি বইয়ের due কাছে` : `আমার বই (${data.loans.length})`}
+        {late ? `${data.overdue} book(s) overdue` : data.dueSoon > 0 ? `${data.dueSoon} book(s) due soon` : `My books (${data.loans.length})`}
       </span>
       {late && <span className="rounded-full bg-rose-600 px-2 py-0.5 text-xs text-white tabular-nums">{data.overdue}</span>}
     </Link>

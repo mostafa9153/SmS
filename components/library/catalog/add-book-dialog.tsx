@@ -43,7 +43,7 @@ function AddBookForm({ onDone }: { onDone: () => void }) {
   const valid = values.title.trim() && Number.isInteger(count) && count >= 0 && count <= 500 && (priceValue === null || priceValue >= 0);
 
   const save = async () => {
-    if (!values.title.trim()) return setTitleError("নাম লিখুন");
+    if (!values.title.trim()) return setTitleError("Enter the title");
     if (!valid || inFlight.current) return;
     inFlight.current = true;
     setSaving(true);
@@ -54,11 +54,11 @@ function AddBookForm({ onDone }: { onDone: () => void }) {
         { book: bookPayload(values), copies: count, price: priceValue },
         requestId.current,
       );
-      toastWithUndo(`যোগ হলো: ${r.data.bookCode}`, r.undoId, refresh);
+      toastWithUndo(`Added: ${r.data.bookCode}`, r.undoId, refresh);
       refresh();
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "যোগ করা যায়নি");
+      toast.error(err instanceof Error ? err.message : "Could not add");
     } finally {
       inFlight.current = false;
       setSaving(false);
@@ -68,7 +68,7 @@ function AddBookForm({ onDone }: { onDone: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>নতুন বই</DialogTitle>
+        <DialogTitle>New book</DialogTitle>
       </DialogHeader>
       <div
         className="space-y-4"
@@ -86,7 +86,7 @@ function AddBookForm({ onDone }: { onDone: () => void }) {
         />
         {matches.length > 0 && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-2">
-            <p className="font-semibold text-amber-800 dark:text-amber-300">আগে থেকে আছে</p>
+            <p className="font-semibold text-amber-800 dark:text-amber-300">Already exists</p>
             {matches.map((b) => (
               <div key={b.id} className="flex flex-wrap items-center justify-between gap-2">
                 <Link href={`/library/books/${b.id}`} className="font-medium hover:underline">
@@ -94,27 +94,27 @@ function AddBookForm({ onDone }: { onDone: () => void }) {
                   {b.author ? ` — ${b.author}` : ""}
                 </Link>
                 <Button size="sm" variant="outline" onClick={() => setAddTo({ id: b.id, title: b.title })}>
-                  <CopyPlus /> কপি যোগ করো
+                  <CopyPlus /> Add copies
                 </Button>
               </div>
             ))}
           </div>
         )}
         <FormGrid>
-          <FormField label="কপির সংখ্যা">
+          <FormField label="Copies">
             <Input type="number" inputMode="numeric" min={0} max={500} value={copies} onChange={(e) => setCopies(e.target.value)} />
           </FormField>
-          <FormField label="দাম (প্রতি কপি, ₹)">
+          <FormField label="Price (per copy, ₹)">
             <Input type="number" inputMode="decimal" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
           </FormField>
         </FormGrid>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onDone}>
-          বাতিল
+          Cancel
         </Button>
         <Button onClick={save} disabled={saving || !valid}>
-          {saving ? "যোগ হচ্ছে…" : "যোগ করো"}
+          {saving ? "Adding…" : "Add"}
         </Button>
       </DialogFooter>
       <AddCopiesDialog

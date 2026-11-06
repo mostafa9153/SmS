@@ -16,7 +16,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const Empty = () => <p className="text-sm text-muted-foreground">কিছু নেই</p>;
+const Empty = () => <p className="text-sm text-muted-foreground">Nothing</p>;
 
 export function RankedList({ title, items, unit }: { title: string; items: Ranked[]; unit: string }) {
   const max = items[0]?.count ?? 1;
@@ -48,7 +48,7 @@ export function RankedList({ title, items, unit }: { title: string; items: Ranke
 
 export function NeverLentList({ books }: { books: NeverLentBook[] }) {
   return (
-    <Card title={`কখনো না-নেওয়া বই (${books.length})`}>
+    <Card title={`Never borrowed (${books.length})`}>
       {books.length === 0 ? (
         <Empty />
       ) : (
@@ -59,7 +59,7 @@ export function NeverLentList({ books }: { books: NeverLentBook[] }) {
                 {b.title}
               </Link>
               <span className="truncate text-xs text-muted-foreground">{b.author}</span>
-              <span className="text-xs tabular-nums text-muted-foreground">{b.copies} কপি</span>
+              <span className="text-xs tabular-nums text-muted-foreground">{b.copies} copies</span>
             </li>
           ))}
         </ul>
@@ -70,7 +70,7 @@ export function NeverLentList({ books }: { books: NeverLentBook[] }) {
 
 export function WaiverMonths({ months }: { months: WaiverMonth[] }) {
   return (
-    <Card title="মাসিক মওকুফ">
+    <Card title="Monthly waivers">
       {months.length === 0 ? (
         <Empty />
       ) : (
@@ -80,14 +80,14 @@ export function WaiverMonths({ months }: { months: WaiverMonth[] }) {
               <div className="flex items-center justify-between text-sm font-semibold">
                 <span>{m.month}</span>
                 <span className="tabular-nums">
-                  {money(m.total)} · {m.count}টি
+                  {money(m.total)} · {m.count}
                 </span>
               </div>
               {m.byPerson.map((p) => (
                 <div key={p.by} className="flex items-center justify-between pl-3 text-xs text-muted-foreground">
                   <span>{p.by}</span>
                   <span className="tabular-nums">
-                    {money(p.total)} · {p.count}টি
+                    {money(p.total)} · {p.count}
                   </span>
                 </div>
               ))}

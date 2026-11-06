@@ -34,16 +34,16 @@ export default function LibraryCatalogPage() {
               <FileSpreadsheet /> Excel import
             </Button>
             <Button onClick={() => setAdding(true)}>
-              <BookPlus /> নতুন বই
+              <BookPlus /> New book
             </Button>
           </>
         }
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard label="বই (title)" value={stats?.titles ?? "–"} icon={BookOpen} />
-        <StatCard label="কপি" value={stats?.copies ?? "–"} icon={Tags} />
-        <StatCard label="ধার দেওয়া" value={stats?.onLoan ?? "–"} icon={Users} />
+        <StatCard label="Titles" value={stats?.titles ?? "–"} icon={BookOpen} />
+        <StatCard label="Copies" value={stats?.copies ?? "–"} icon={Tags} />
+        <StatCard label="On loan" value={stats?.onLoan ?? "–"} icon={Users} />
         <StatCard
           label="Overdue"
           value={stats?.overdue ?? "–"}
@@ -51,25 +51,25 @@ export default function LibraryCatalogPage() {
           iconClassName={stats?.overdue ? "text-rose-600" : undefined}
           onClick={() => router.push("/library/overdue")}
         />
-        <StatCard label="Sticker বাকি" value={stats?.unprinted ?? "–"} icon={Printer} onClick={() => router.push("/library/stickers")} />
+        <StatCard label="Stickers to print" value={stats?.unprinted ?? "–"} icon={Printer} onClick={() => router.push("/library/stickers")} />
       </div>
 
       <SearchInput
         value={q}
         onChange={setQ}
-        placeholder="নাম, লেখক, code বা পুরোনো Accession No."
+        placeholder="Title, author, code or old Accession No."
       />
 
       {books.isLoading ? (
-        <Spinner label="লোড হচ্ছে…" className="py-16" />
+        <Spinner label="Loading…" className="py-16" />
       ) : list.length === 0 ? (
         <EmptyState
           icon={Library}
-          title={q.trim() ? "কিছু পাওয়া যায়নি" : "এখনো কোনো বই নেই"}
+          title={q.trim() ? "No results" : "No books yet"}
           action={
             !q.trim() && (
               <Button onClick={() => setAdding(true)}>
-                <BookPlus /> নতুন বই
+                <BookPlus /> New book
               </Button>
             )
           }
@@ -80,7 +80,7 @@ export default function LibraryCatalogPage() {
           {books.hasNextPage && (
             <div className="flex justify-center">
               <Button variant="outline" onClick={() => books.fetchNextPage()} disabled={books.isFetchingNextPage}>
-                আরও দেখাও
+                Show more
               </Button>
             </div>
           )}

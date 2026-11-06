@@ -52,10 +52,10 @@ export function gridProblems(g: StickerGrid): string[] {
   const out: string[] = [];
   const gridW = g.cols * g.widthMm + (g.cols - 1) * g.gapXMm;
   const gridH = g.rows * g.heightMm + (g.rows - 1) * g.gapYMm;
-  if (gridW > PAGE_MM.w + 0.01) out.push(`চওড়ায় ${(gridW - PAGE_MM.w).toFixed(1)} mm বেশি`);
-  if (gridH > PAGE_MM.h + 0.01) out.push(`উচ্চতায় ${(gridH - PAGE_MM.h).toFixed(1)} mm বেশি`);
-  if (g.heightMm - 2 * SAFE_MM < MIN_QR_MM) out.push(`QR-এর জন্য sticker কমপক্ষে ${MIN_QR_MM + 2 * SAFE_MM} mm উঁচু হতে হবে`);
-  if (g.widthMm - 2 * SAFE_MM < MIN_QR_MM + QR_TEXT_GAP_MM + 10) out.push("Sticker খুব সরু");
+  if (gridW > PAGE_MM.w + 0.01) out.push(`${(gridW - PAGE_MM.w).toFixed(1)} mm too wide`);
+  if (gridH > PAGE_MM.h + 0.01) out.push(`${(gridH - PAGE_MM.h).toFixed(1)} mm too tall`);
+  if (g.heightMm - 2 * SAFE_MM < MIN_QR_MM) out.push(`Sticker must be at least ${MIN_QR_MM + 2 * SAFE_MM} mm tall for the QR`);
+  if (g.widthMm - 2 * SAFE_MM < MIN_QR_MM + QR_TEXT_GAP_MM + 10) out.push("Sticker too narrow");
   return out;
 }
 

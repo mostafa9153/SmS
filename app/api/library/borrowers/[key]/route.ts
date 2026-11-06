@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ key
   if (!gate.ok) return gate.response;
   try {
     const parsed = parseBorrowerKey(decodeURIComponent((await params).key));
-    if (!parsed) return NextResponse.json({ success: false, error: "Borrower পাওয়া যায়নি।" }, { status: 404 });
+    if (!parsed) return NextResponse.json({ success: false, error: "Borrower not found." }, { status: 404 });
     return NextResponse.json({ success: true, data: await getBorrowerSummary(parsed.type, parsed.id) });
   } catch (err) {
     return libraryRouteError(err);

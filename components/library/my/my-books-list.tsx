@@ -15,9 +15,9 @@ const TONE = {
 
 function dueText(dueOn: string, today: string) {
   const d = daysUntil(dueOn, today);
-  if (d < 0) return { text: `${-d} দিন overdue`, cls: "text-rose-600" };
-  if (d === 0) return { text: "আজ due", cls: "text-amber-600" };
-  return { text: `${d} দিনে due (${dueOn})`, cls: d <= 2 ? "text-amber-600" : "text-muted-foreground" };
+  if (d < 0) return { text: `${-d} days overdue`, cls: "text-rose-600" };
+  if (d === 0) return { text: "Due today", cls: "text-amber-600" };
+  return { text: `Due in ${d} days (${dueOn})`, cls: d <= 2 ? "text-amber-600" : "text-muted-foreground" };
 }
 
 /** R9: Renew shows the new due date before you press it; when it is not allowed, it says why. */
@@ -26,9 +26,9 @@ function renewHint(loan: OpenLoanView, blocked: boolean): string | undefined {
   if (q.ok) {
     if (blocked) return undefined;
     // R10: renewing while overdue records the fine accrued so far.
-    return loan.accruing > 0 ? `Renew করলে ₹${loan.accruing} fine জমা পড়বে` : undefined;
+    return loan.accruing > 0 ? `Renewing adds a ₹${loan.accruing} fine` : undefined;
   }
-  if (q.reason === "too_early") return `Renew খুলবে ${q.opensOn} থেকে`;
+  if (q.reason === "too_early") return `Renew opens on ${q.opensOn}`;
   return LIBRARY_ERRORS[q.reason][1];
 }
 
@@ -68,7 +68,7 @@ export function MyBooksList({
                 disabled={!loan.renew.ok || blockedReason !== null || busy === loan.loanId}
                 onClick={() => onRenew(loan.loanId, loan.title)}
               >
-                <RefreshCw /> {loan.renew.ok ? `নতুন due: ${loan.renew.newDue}` : "Renew"}
+                <RefreshCw /> {loan.renew.ok ? `New due: ${loan.renew.newDue}` : "Renew"}
               </Button>
             </div>
             {hint && <p className="text-xs text-muted-foreground">{hint}</p>}

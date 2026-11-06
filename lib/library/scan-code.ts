@@ -144,15 +144,15 @@ export function showInvisible(raw: string): string {
 
 /** The diagnosis in words, for the Scanner test (Bengali, as the desk is). */
 export function describeDiagnosis(d: ScanDiagnosis): string {
-  if (d.match) return "মিলেছে";
+  if (d.match) return "Matched";
   switch (d.hint) {
     case "leading_zeros":
-      return "শুরুর শূন্য হারিয়েছে। Scanner বা Excel সংখ্যা ভেবে শূন্য কেটে দিচ্ছে।";
+      return "Leading zeros lost. The scanner or Excel is treating it as a number.";
     case "length":
-      return "অক্ষর কম বা বেশি এসেছে। Scanner-এর prefix/suffix বা কাটা code দেখুন।";
+      return "Characters missing or extra. Check the scanner prefix/suffix or a cut code.";
     case "keyboard_layout":
-      return `${d.position + 1} নম্বর অক্ষরে "${d.expected}" আশা ছিল, এসেছে "${d.got}"। Scanner-এর keyboard layout মেলেনি।`;
+      return `Character ${d.position + 1}: expected "${d.expected}", got "${d.got}". Scanner keyboard layout does not match.`;
     default:
-      return `${d.position + 1} নম্বর অক্ষর আলাদা: আশা "${d.expected}", এসেছে "${d.got}"।`;
+      return `Character ${d.position + 1} differs: expected "${d.expected}", got "${d.got}".`;
   }
 }

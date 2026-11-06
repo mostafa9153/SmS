@@ -38,11 +38,11 @@ export function libraryRouteError(err: unknown) {
     );
   }
   if (err instanceof z.ZodError) {
-    return NextResponse.json({ success: false, error: "অনুরোধের তথ্য ঠিক নেই।", code: "invalid_request" }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Invalid request data.", code: "invalid_request" }, { status: 400 });
   }
   void notifyAdminsOfError("library", "Library action failed", err, "/library");
   console.error("[library]", err);
-  return NextResponse.json({ success: false, error: "Library-র কাজটা হয়নি। আবার চেষ্টা করুন।" }, { status: 500 });
+  return NextResponse.json({ success: false, error: "Library action failed. Please try again." }, { status: 500 });
 }
 
 /** The signed-in user as the actor recorded on every library row (S5). */
@@ -56,7 +56,7 @@ export function actorOf(auth: AuthContext): Actor {
 export function denyWaive(auth: AuthContext): NextResponse | null {
   if (auth.role === "Admin") return null;
   if (auth.role === "Teacher" && teacherPermissions(auth).can_waive_library_fines === true) return null;
-  return NextResponse.json({ success: false, error: "মওকুফ করার অনুমতি নেই।" }, { status: 403 });
+  return NextResponse.json({ success: false, error: "You are not allowed to waive fines." }, { status: 403 });
 }
 
 export async function readJson(request: Request): Promise<unknown> {

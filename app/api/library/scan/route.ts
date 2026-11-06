@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   if (!gate.ok) return gate.response;
   try {
     const code = new URL(request.url).searchParams.get("code") ?? "";
-    if (code.length > 200) return NextResponse.json({ success: false, error: "Code বেশি লম্বা।" }, { status: 400 });
+    if (code.length > 200) return NextResponse.json({ success: false, error: "Code too long." }, { status: 400 });
     return NextResponse.json({ success: true, data: await resolveLibraryScan(code) });
   } catch (err) {
     return libraryRouteError(err);

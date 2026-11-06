@@ -36,8 +36,8 @@ function TestBox({ field, title }: { field: Field; title: string }) {
           setTyped("");
         }}
       >
-        <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="এখানে scan করুন" className="min-w-48 flex-1" autoComplete="off" spellCheck={false} />
-        <Input value={expected} onChange={(e) => setExpected(e.target.value)} placeholder="Card-এ যা ছাপা (ঐচ্ছিক)" className="min-w-48 flex-1" autoComplete="off" spellCheck={false} />
+        <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Scan here" className="min-w-48 flex-1" autoComplete="off" spellCheck={false} />
+        <Input value={expected} onChange={(e) => setExpected(e.target.value)} placeholder="Printed on card (optional)" className="min-w-48 flex-1" autoComplete="off" spellCheck={false} />
         <Button type="submit" variant="outline" disabled={!typed.trim()}>
           Test
         </Button>
@@ -46,15 +46,15 @@ function TestBox({ field, title }: { field: Field; title: string }) {
       {submitted !== null && (
         <dl className="space-y-1 text-sm">
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-muted-foreground">Scanner যা টাইপ করল</dt>
+            <dt className="w-28 shrink-0 text-muted-foreground">Scanner typed</dt>
             <dd className="break-all font-mono">{showInvisible(submitted)}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-muted-foreground">পরিষ্কার হয়ে</dt>
+            <dt className="w-28 shrink-0 text-muted-foreground">Cleaned</dt>
             <dd className="break-all font-mono">{data?.normalized ?? "…"}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-muted-foreground">মিলল</dt>
+            <dt className="w-28 shrink-0 text-muted-foreground">Matched</dt>
             <dd>
               {lookup.isLoading ? (
                 "…"
@@ -67,13 +67,13 @@ function TestBox({ field, title }: { field: Field; title: string }) {
                   ))}
                 </ul>
               ) : (
-                <span className="text-rose-600">কোনো student মেলেনি</span>
+                <span className="text-rose-600">No student matched</span>
               )}
             </dd>
           </div>
           {diagnosis && (
             <div className="flex gap-2">
-              <dt className="w-28 shrink-0 text-muted-foreground">কেন</dt>
+              <dt className="w-28 shrink-0 text-muted-foreground">Why</dt>
               <dd className={diagnosis.match ? "text-emerald-600" : "text-amber-600"}>{describeDiagnosis(diagnosis)}</dd>
             </div>
           )}

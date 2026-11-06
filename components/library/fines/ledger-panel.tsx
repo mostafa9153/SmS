@@ -11,7 +11,7 @@ import { refundLimit } from "@/lib/library/fine-report";
 import type { LedgerFine, ReceiptView } from "@/lib/library/db-library-fines";
 import { COLLECT_ERRORS, type useFines } from "@/lib/library/use-fines";
 
-const KIND = { overdue: "Overdue", lost: "হারানো", damaged: "ক্ষতিগ্রস্ত" } as const;
+const KIND = { overdue: "Overdue", lost: "Lost", damaged: "Damaged" } as const;
 const money = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 type Fines = ReturnType<typeof useFines>;
@@ -34,7 +34,7 @@ function FineRow({ fine, f, canWaive }: { fine: LedgerFine; f: Fines; canWaive: 
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="checkbox"
-          aria-label="আদায়ে যোগ করো"
+          aria-label="Add to collection"
           disabled={fine.cancelled || fine.outstanding <= 0}
           checked={picked}
           onChange={() => f.togglePick(fine.fineId, fine.outstanding)}
@@ -43,10 +43,10 @@ function FineRow({ fine, f, canWaive }: { fine: LedgerFine; f: Fines; canWaive: 
           <p className="truncate text-sm font-semibold">
             <span className="mr-1.5 text-xs font-semibold text-muted-foreground">{KIND[fine.kind]}</span>
             {fine.title}
-            {fine.cancelled && <span className="ml-1.5 text-xs text-rose-600">বাতিল</span>}
+            {fine.cancelled && <span className="ml-1.5 text-xs text-rose-600">Cancelled</span>}
           </p>
           <p className="text-xs text-muted-foreground tabular-nums">
-            {money(fine.amount)} · জমা {money(fine.paid - fine.refunded)} · মওকুফ {money(fine.waived)}
+            {money(fine.amount)} · paid {money(fine.paid - fine.refunded)} · waived {money(fine.waived)}
           </p>
         </div>
         <span className={cn("text-sm font-bold tabular-nums", fine.outstanding > 0 ? "text-rose-600" : "text-muted-foreground")}>
@@ -58,17 +58,17 @@ function FineRow({ fine, f, canWaive }: { fine: LedgerFine; f: Fines; canWaive: 
             value={f.picks[fine.fineId]}
             onChange={(e) => f.setPickAmount(fine.fineId, e.target.value)}
             className="h-8 w-24"
-            aria-label="আদায়ের পরিমাণ"
+            aria-label="Amount to collect"
           />
         )}
         {!fine.cancelled && canWaive && fine.outstanding > 0 && (
           <Button size="sm" variant="ghost" onClick={() => setForm(form === "waive" ? null : "waive")}>
-            মওকুফ
+            Waive
           </Button>
         )}
         {!fine.cancelled && canRefund && (
           <Button size="sm" variant="ghost" onClick={() => setForm(form === "refund" ? null : "refund")}>
-            <Undo2 /> ফেরত
+            <Undo2 /> Refund
           </Button>
         )}
       </div>
@@ -77,19 +77,19 @@ function FineRow({ fine, f, canWaive }: { fine: LedgerFine; f: Fines; canWaive: 
         <div className="flex flex-wrap items-center gap-2 border-t pt-2">
           {(["full", "half", "custom"] as const).map((m) => (
             <Button key={m} size="sm" variant={mode === m ? "default" : "outline"} onClick={() => setMode(m)}>
-              {m === "full" ? "পুরো" : m === "half" ? "বাকির 50%" : "নিজে লিখি"}
+              {m === "full" ? "Full" : m === "half" ? "50% of due" : "Custom"}
             </Button>
           ))}
           {mode === "custom" && (
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="₹" className="h-8 w-24" />
           )}
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="কারণ" className="h-8 min-w-40 flex-1" />
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Reason" className="h-8 min-w-40 flex-1" />
           <Button
             size="sm"
             disabled={f.busy || !text.trim() || (mode === "custom" && !(Number(amount) > 0))}
             onClick={() => void f.waive(fine.fineId, mode, text, mode === "custom" ? Number(amount) : undefined).then((ok) => ok && close())}
           >
-            নিশ্চিত
+            Confirm
           </Button>
         </div>
       )}
@@ -100,7 +100,7 @@ function FineRow({ fine, f, canWaive }: { fine: LedgerFine; f: Fines; canWaive: 
             inputMode="decimal"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder={`সর্বোচ্চ ₹${refundLimit(fine)}`}
+            placeholder={`Max ₹${refundLimit(fine)}`}
             className="h-8 w-32"
           />
           <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Note" className="h-8 min-w-40 flex-1" />
@@ -109,7 +109,7 @@ function FineRow({ fine, f, canWaive }: { fine: LedgerFine; f: Fines; canWaive: 
             disabled={f.busy || !(Number(amount) > 0) || Number(amount) > refundLimit(fine)}
             onClick={() => void f.refund(fine.fineId, Number(amount), text).then((ok) => ok && close())}
           >
-            ফেরত দিন
+            Refund
           </Button>
         </div>
       )}
@@ -125,7 +125,7 @@ function ReceiptRow({ r, f }: { r: ReceiptView; f: Fines }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className={cn("font-semibold tabular-nums", r.voided && "line-through")}>#{r.receiptNo}</span>
         <span className="text-xs text-muted-foreground">
-          {r.kind === "refund" ? "ফেরত" : "আদায়"} · {r.paidOn}
+          {r.kind === "refund" ? "Refund" : "Payment"} · {r.paidOn}
         </span>
         <span className="flex-1 text-right font-semibold tabular-nums">{money(r.total)}</span>
         <Button size="sm" variant="ghost" asChild>
@@ -135,21 +135,21 @@ function ReceiptRow({ r, f }: { r: ReceiptView; f: Fines }) {
         </Button>
         {!r.voided && (
           <Button size="sm" variant="ghost" onClick={() => setVoiding((v) => !v)}>
-            <Ban /> বাতিল
+            <Ban /> Void
           </Button>
         )}
       </div>
-      {r.voided && r.voidReason && <p className="text-xs text-rose-600">বাতিল: {r.voidReason}</p>}
+      {r.voided && r.voidReason && <p className="text-xs text-rose-600">Voided: {r.voidReason}</p>}
       {voiding && (
         <div className="flex gap-2 border-t pt-2">
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="বাতিলের কারণ" className="h-8 flex-1" />
+          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Void reason" className="h-8 flex-1" />
           <Button
             size="sm"
             variant="destructive"
             disabled={f.busy || !reason.trim()}
             onClick={() => void f.voidReceipt(r.receiptNo, reason.trim()).then((done) => done && setVoiding(false))}
           >
-            বাতিল করো
+            Void
           </Button>
         </div>
       )}
@@ -159,7 +159,7 @@ function ReceiptRow({ r, f }: { r: ReceiptView; f: Fines }) {
 
 export function LedgerPanel({ f }: { f: Fines }) {
   const l = f.ledger.data;
-  if (f.ledger.isLoading || !l) return <Spinner label="লোড হচ্ছে…" className="py-16" />;
+  if (f.ledger.isLoading || !l) return <Spinner label="Loading…" className="py-16" />;
   const { profile, balance } = l;
 
   return (
@@ -181,13 +181,13 @@ export function LedgerPanel({ f }: { f: Fines }) {
         </div>
         <div className="text-right">
           <p className="text-lg font-bold tabular-nums text-rose-600">{money(balance.total)}</p>
-          {balance.accruing > 0 && <p className="text-xs text-muted-foreground">চলমান {money(balance.accruing)}</p>}
+          {balance.accruing > 0 && <p className="text-xs text-muted-foreground">Accruing {money(balance.accruing)}</p>}
         </div>
       </div>
 
       {f.lastReceipt && (
         <div className="flex items-center justify-between rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
-          <span className="font-semibold">রসিদ #{f.lastReceipt}</span>
+          <span className="font-semibold">Receipt #{f.lastReceipt}</span>
           <Button size="sm" asChild>
             <Link href={`/library/fines/receipt/${f.lastReceipt}`} target="_blank">
               <Printer /> Print
@@ -200,7 +200,7 @@ export function LedgerPanel({ f }: { f: Fines }) {
         {l.fines.length ? (
           l.fines.map((fine) => <FineRow key={fine.fineId} fine={fine} f={f} canWaive={l.canWaive} />)
         ) : (
-          <p className="text-sm text-muted-foreground">কোনো fine নেই</p>
+          <p className="text-sm text-muted-foreground">No fines</p>
         )}
       </div>
 
@@ -208,14 +208,14 @@ export function LedgerPanel({ f }: { f: Fines }) {
         <div className="space-y-1">
           {f.collect.error && f.collect.error !== "none" && <p className="text-sm text-rose-600">{COLLECT_ERRORS[f.collect.error]}</p>}
           <Button className="w-full" disabled={f.busy || f.collect.error !== null} onClick={() => void f.pay()}>
-            <HandCoins /> {money(f.collect.total)} আদায় করুন
+            <HandCoins /> Collect {money(f.collect.total)}
           </Button>
         </div>
       )}
 
       {l.receipts.length > 0 && (
         <div className="space-y-1.5">
-          <h3 className="text-sm font-semibold text-muted-foreground">রসিদ</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground">Receipts</h3>
           {l.receipts.map((r) => (
             <ReceiptRow key={r.receiptNo} r={r} f={f} />
           ))}
@@ -224,7 +224,7 @@ export function LedgerPanel({ f }: { f: Fines }) {
 
       {l.waivers.length > 0 && (
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-muted-foreground">মওকুফ</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground">Waivers</h3>
           {l.waivers.map((w, i) => (
             <p key={i} className={cn("text-xs", w.voided && "line-through opacity-60")}>
               {money(w.amount)} · {w.title} · {w.reason} · {new Date(w.at).toLocaleDateString("en-IN")}

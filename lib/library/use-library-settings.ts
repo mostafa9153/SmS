@@ -63,10 +63,10 @@ export function useLibrarySettings() {
       // Show what was saved at once; an edit made before the refetch must not start from old values.
       queryClient.setQueryData(["library", "settings"], r.data);
       setDraft(null);
-      toastWithUndo("Settings সংরক্ষিত", r.undoId, refresh);
+      toastWithUndo("Settings saved", r.undoId, refresh);
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "সংরক্ষণ হয়নি");
+      toast.error(err instanceof Error ? err.message : "Could not save");
     } finally {
       setSaving(false);
     }

@@ -17,34 +17,34 @@ export default function MyBooksPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
-      <PageHeader title="আমার বই" icon={BookOpen} back="/teacher" />
+      <PageHeader title="My books" icon={BookOpen} back="/teacher" />
       {books.isError && !d ? (
         <EmptyState
           icon={BookOpen}
-          title="লোড করা যায়নি"
+          title="Could not load"
           action={
             <Button variant="outline" onClick={() => void books.refetch()}>
-              আবার চেষ্টা
+              Retry
             </Button>
           }
         />
       ) : books.isLoading || !d ? (
-        <Spinner label="লোড হচ্ছে…" className="py-16" />
+        <Spinner label="Loading…" className="py-16" />
       ) : !d.linked ? (
-        <EmptyState icon={BookOpen} title="আপনার account-এ কোনো staff profile যুক্ত নেই" />
+        <EmptyState icon={BookOpen} title="No staff profile linked to your account" />
       ) : (
         <>
           {d.overdue > 0 && (
             <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-700 dark:text-rose-400">
-              {d.overdue}টি বই overdue। ফেরত দিন।
+              {d.overdue} book(s) overdue. Please return.
             </div>
           )}
           <div className="flex flex-wrap gap-2 text-sm">
             <span className="rounded-full bg-muted px-2.5 py-0.5 font-medium">
-              {d.loans.length}/{d.maxBooks}টি বই
+              {d.loans.length}/{d.maxBooks} books
             </span>
             <span className={d.balance.total > 0 ? "rounded-full bg-rose-500/10 px-2.5 py-0.5 font-medium text-rose-600" : "rounded-full bg-muted px-2.5 py-0.5 font-medium"}>
-              বাকি {money(d.balance.total)}
+              Due {money(d.balance.total)}
             </span>
           </div>
           {d.loans.length ? (
@@ -56,15 +56,15 @@ export default function MyBooksPage() {
               onRenew={renew}
             />
           ) : (
-            <EmptyState icon={BookOpen} title="হাতে কোনো বই নেই" />
+            <EmptyState icon={BookOpen} title="No books borrowed" />
           )}
           {d.fines.length > 0 && (
             <section className="space-y-1.5">
-              <h2 className="text-sm font-semibold text-muted-foreground">বাকি fine</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground">Fines due</h2>
               {d.fines.map((f) => (
                 <div key={f.fineId} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
                   <span className="flex-1 truncate">
-                    {f.kind === "overdue" ? "Overdue" : f.kind === "lost" ? "হারানো" : "ক্ষতিগ্রস্ত"} · {f.title}
+                    {f.kind === "overdue" ? "Overdue" : f.kind === "lost" ? "Lost" : "Damaged"} · {f.title}
                   </span>
                   <span className="font-semibold tabular-nums text-rose-600">{money(f.outstanding)}</span>
                 </div>

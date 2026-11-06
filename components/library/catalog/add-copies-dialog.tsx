@@ -77,12 +77,12 @@ function AddCopiesForm({
         { count: n, price: priceValue },
         requestId.current,
       );
-      toastWithUndo(`${r.data.copyIds.length}টি কপি যোগ হলো`, r.undoId, refresh);
+      toastWithUndo(`${r.data.copyIds.length} copies added`, r.undoId, refresh);
       refresh();
       onClose();
       onAdded?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "কপি যোগ করা যায়নি");
+      toast.error(err instanceof Error ? err.message : "Could not add copies");
     } finally {
       inFlight.current = false;
       setSaving(false);
@@ -92,24 +92,24 @@ function AddCopiesForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="truncate">কপি যোগ: {book.title}</DialogTitle>
+        <DialogTitle className="truncate">Add copies: {book.title}</DialogTitle>
       </DialogHeader>
       <div onKeyDown={(e) => isSubmitEnter(e) && save()}>
         <FormGrid>
-          <FormField label="কপির সংখ্যা">
+          <FormField label="Copies">
             <Input type="number" inputMode="numeric" min={1} max={500} value={count} autoFocus onChange={(e) => setCount(e.target.value)} />
           </FormField>
-          <FormField label="দাম (প্রতি কপি, ₹)">
+          <FormField label="Price (per copy, ₹)">
             <Input type="number" inputMode="decimal" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
           </FormField>
         </FormGrid>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>
-          বাতিল
+          Cancel
         </Button>
         <Button onClick={save} disabled={saving || !valid}>
-          {saving ? "যোগ হচ্ছে…" : "যোগ করো"}
+          {saving ? "Adding…" : "Add"}
         </Button>
       </DialogFooter>
     </>

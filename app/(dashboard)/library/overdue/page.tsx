@@ -32,24 +32,24 @@ export default function LibraryOverduePage() {
         title="Overdue / Clearance"
         icon={AlertTriangle}
         back="/library"
-        badge={<span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{books}টি বই</span>}
+        badge={<span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{books} books</span>}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Toggle value={p.scope} onChange={p.setScope} options={[["overdue", "Overdue"], ["open", "সব খোলা বই"]]} />
-        <Toggle value={p.basis} onChange={p.setBasis} options={[["issue", "Issue-এর সময়ের class"], ["now", "এখনকার class"]]} />
+        <Toggle value={p.scope} onChange={p.setScope} options={[["overdue", "Overdue"], ["open", "All open loans"]]} />
+        <Toggle value={p.basis} onChange={p.setBasis} options={[["issue", "Class at issue"], ["now", "Current class"]]} />
         <FilterSelect
           value={p.group && groups.some((g) => g.key === p.group) ? p.group : ""}
           onChange={p.setGroup}
           placeholder="Class"
-          allLabel="সব class"
+          allLabel="All classes"
           options={groups.map((g) => ({ label: g.label, value: g.key }))}
         />
       </div>
-      <SearchInput value={p.q} onChange={p.setQ} placeholder="নাম, ID, বইয়ের নাম বা code" />
+      <SearchInput value={p.q} onChange={p.setQ} placeholder="Name, ID, book title or code" />
       {query.isLoading ? (
-        <Spinner label="লোড হচ্ছে…" className="py-16" />
+        <Spinner label="Loading…" className="py-16" />
       ) : p.shown.length === 0 ? (
-        <EmptyState icon={AlertTriangle} title={p.scope === "overdue" ? "কোনো overdue বই নেই" : "কোনো বই বাইরে নেই"} />
+        <EmptyState icon={AlertTriangle} title={p.scope === "overdue" ? "No overdue books" : "No books out"} />
       ) : (
         <ClearanceList groups={p.shown} today={today} scope={p.scope} basis={p.basis} />
       )}

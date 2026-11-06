@@ -122,7 +122,7 @@ async function actorNames(ids: string[]): Promise<Map<string, string>> {
     [...new Set(ids)].map(async (id) => {
       const { data } = await db().auth.admin.getUserById(id);
       const u = data?.user;
-      out.set(id, (u?.user_metadata?.full_name as string | undefined) || u?.email || "অজানা");
+      out.set(id, (u?.user_metadata?.full_name as string | undefined) || u?.email || "Unknown");
     }),
   );
   return out;
@@ -181,7 +181,7 @@ export async function getReports(from: string, to: string): Promise<LibraryRepor
       everLent.map((l) => l.copy?.book_id).filter(Boolean),
     ),
     waivers: waiversByMonth(
-      waivers.map((w) => ({ day: libraryToday(new Date(w.waived_at)), amount: Number(w.amount), by: names.get(w.waived_by) ?? "অজানা" })),
+      waivers.map((w) => ({ day: libraryToday(new Date(w.waived_at)), amount: Number(w.amount), by: names.get(w.waived_by) ?? "Unknown" })),
     ),
   };
 }

@@ -60,7 +60,7 @@ describe("groupClearance", () => {
 
   it("by class now: the promoted student moves, the passed-out one has no class", () => {
     const g = groupClearance(rows, "now", TODAY);
-    expect(g.map((x) => x.label)).toEqual(["VIII A", "IX B", "Class নেই", "Teacher / Staff"]);
+    expect(g.map((x) => x.label)).toEqual(["VIII A", "IX B", "No class", "Teacher / Staff"]);
   });
 
   it("falls back to the present class when none was recorded at issue", () => {

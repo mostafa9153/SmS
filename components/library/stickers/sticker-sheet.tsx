@@ -82,12 +82,10 @@ function StickerLabel({ copy, inner }: { copy: StickerCopy; inner: ReturnType<ty
           </span>
         )}
         <span className="font-semibold" style={{ fontSize: "8pt" }}>
-          কপি {toBengaliDigits(copy.copyNo)}
+          Copy {copy.copyNo}
         </span>
       </div>
     </>
   );
 }
 
-const BN = "০১২৩৪৫৬৭৮৯";
-export const toBengaliDigits = (n: number) => String(n).replace(/\d/g, (d) => BN[Number(d)]);

@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ no:
   if (!gate.ok) return gate.response;
   try {
     const no = Number((await params).no);
-    if (!Number.isSafeInteger(no) || no <= 0) return NextResponse.json({ success: false, error: "রসিদ নম্বর ঠিক নেই।" }, { status: 400 });
+    if (!Number.isSafeInteger(no) || no <= 0) return NextResponse.json({ success: false, error: "Invalid receipt number." }, { status: 400 });
     return NextResponse.json({ success: true, data: await getReceipt(no) });
   } catch (err) {
     return libraryRouteError(err);

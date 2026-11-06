@@ -1,5 +1,5 @@
 /**
- * "আমার বই" (plan T11): what a signed-in staff member sees of their own
+ * "My books" (plan T11): what a signed-in staff member sees of their own
  * loans. Pure helpers; the data comes from db-library-my.ts, which reads only
  * the borrower named by the session (S4), never one named by the request.
  */

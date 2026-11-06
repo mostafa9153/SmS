@@ -12,10 +12,10 @@ export function BookTable({ books }: { books: BookListItem[] }) {
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-semibold">Code</th>
-            <th className="px-3 py-2 text-left font-semibold">বই</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Shelf-এ</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap hidden sm:table-cell">ধার</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap hidden sm:table-cell">মোট</th>
+            <th className="px-3 py-2 text-left font-semibold">Book</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">On shelf</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap hidden sm:table-cell">On loan</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap hidden sm:table-cell">Total</th>
           </tr>
         </thead>
         <tbody>

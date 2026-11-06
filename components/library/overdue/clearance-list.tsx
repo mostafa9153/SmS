@@ -29,7 +29,7 @@ export function ClearanceList({
           <header className="flex items-center gap-3 border-b bg-muted/40 px-4 py-2">
             <h2 className="flex-1 text-sm font-bold">{g.label}</h2>
             <span className="text-xs text-muted-foreground tabular-nums">
-              {g.borrowers.length} জন · {g.books}টি বই
+              {g.borrowers.length} borrowers · {g.books} books
             </span>
             <Button size="sm" variant="ghost" asChild>
               <Link href={slipHref(g.key)} target="_blank">
@@ -55,7 +55,7 @@ export function ClearanceList({
                           {l.title} <span className="text-muted-foreground">({l.code})</span>
                         </span>
                         <span className={cn("tabular-nums", late > 0 ? "text-rose-600" : "text-muted-foreground")}>
-                          {late > 0 ? `${late} দিন overdue` : `due ${l.dueOn}`}
+                          {late > 0 ? `${late} days overdue` : `due ${l.dueOn}`}
                         </span>
                       </li>
                     );
@@ -70,7 +70,7 @@ export function ClearanceList({
         <div className="flex justify-end">
           <Button variant="outline" asChild>
             <Link href={slipHref()} target="_blank">
-              <Printer /> সব class-এর slip
+              <Printer /> Slips for all classes
             </Link>
           </Button>
         </div>

@@ -24,20 +24,20 @@ export default function LibrarySettingsPage() {
           s.canEdit && (
             <>
               <Button variant="outline" onClick={s.reset} disabled={!s.dirty || s.saving}>
-                <RotateCcw /> বাতিল
+                <RotateCcw /> Discard
               </Button>
               <Button onClick={() => void s.save()} disabled={!s.dirty || problems > 0 || s.saving}>
-                <Save /> সংরক্ষণ
+                <Save /> Save
               </Button>
             </>
           )
         }
       />
       {s.loading ? (
-        <Spinner label="লোড হচ্ছে…" className="py-16" />
+        <Spinner label="Loading…" className="py-16" />
       ) : (
         <>
-          {!s.canEdit && <p className="rounded-xl border bg-muted/40 px-3 py-2 text-sm">শুধু Admin বদলাতে পারেন</p>}
+          {!s.canEdit && <p className="rounded-xl border bg-muted/40 px-3 py-2 text-sm">Only Admin can change these</p>}
           <LoanSection s={s} />
           <FineSection s={s} />
           <HolidaysSection s={s} />

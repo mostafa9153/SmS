@@ -26,15 +26,15 @@ export function SlipSheet({
           Library {title} · {group.label}
         </p>
         <p className="text-xs">
-          {today} · {basis === "issue" ? "Issue-এর সময়ের class" : "এখনকার class"} · {group.books}টি বই
+          {today} · {basis === "issue" ? "Class at issue" : "Current class"} · {group.books} books
         </p>
       </div>
       <table className="mt-3 w-full border-collapse text-xs">
         <thead>
           <tr className="border-b border-black text-left">
             <th className="py-1 pr-2">Roll</th>
-            <th className="py-1 pr-2">নাম</th>
-            <th className="py-1 pr-2">বই</th>
+            <th className="py-1 pr-2">Name</th>
+            <th className="py-1 pr-2">Book</th>
             <th className="py-1 pr-2">Due</th>
             <th className="py-1 pr-2 text-right">Fine</th>
             <th className="py-1 text-center">Sign</th>
@@ -58,7 +58,7 @@ export function SlipSheet({
                 </td>
                 <td className="py-1 pr-2 whitespace-nowrap">
                   {l.dueOn}
-                  {daysOverdue(l.dueOn, today) > 0 && <span> ({daysOverdue(l.dueOn, today)} দিন)</span>}
+                  {daysOverdue(l.dueOn, today) > 0 && <span> ({daysOverdue(l.dueOn, today)} days)</span>}
                 </td>
                 <td className="py-1 pr-2 text-right tabular-nums">{money(l.accruing)}</td>
                 <td className="w-16 py-1" />

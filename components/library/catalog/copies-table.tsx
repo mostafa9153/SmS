@@ -46,24 +46,24 @@ function FoundRow({ copy, busy, borrower, onFound }: { copy: BookCopy; busy: boo
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="flex-1 font-medium">
               {blocked.fine
-                ? `হারানোর দাম ${rupees(blocked.fine.amount)}: জমা ${rupees(paidPart)} · মওকুফ ${rupees(blocked.fine.waived)} · বাকি ${rupees(blocked.fine.outstanding)}`
-                : "হারানোর দামে জমা বা মওকুফ আছে।"}
+                ? `Lost charge ${rupees(blocked.fine.amount)}: paid ${rupees(paidPart)} · waived ${rupees(blocked.fine.waived)} · due ${rupees(blocked.fine.outstanding)}`
+                : "The lost charge has payments or waivers."}
             </span>
             <Button size="sm" disabled={busy} onClick={() => void go(blocked.source, true)}>
-              {blocked.fine && blocked.fine.outstanding > 0 ? "রেখে দিন (বাকি পরে মওকুফ)" : "রেখে দিন"}
+              {blocked.fine && blocked.fine.outstanding > 0 ? "Keep (waive the rest later)" : "Keep"}
             </Button>
             <Button size="sm" variant="outline" asChild>
-              <Link href={finesHref}>Fines পাতা</Link>
+              <Link href={finesHref}>Fines page</Link>
             </Button>
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="flex-1 font-medium">কোথায় পাওয়া গেল?</span>
+            <span className="flex-1 font-medium">Where was it found?</span>
             <Button size="sm" disabled={busy} onClick={() => void go("borrower")}>
-              Borrower ফেরত দিয়েছেন
+              Returned by borrower
             </Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => void go("library")}>
-              Library-তেই ছিল
+              Was in the library
             </Button>
           </div>
         )}
@@ -98,8 +98,8 @@ export function CopiesTable({
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-semibold">Code</th>
-            <th className="px-3 py-2 text-left font-semibold">অবস্থা</th>
-            <th className="px-3 py-2 text-right font-semibold hidden sm:table-cell">দাম</th>
+            <th className="px-3 py-2 text-left font-semibold">Status</th>
+            <th className="px-3 py-2 text-right font-semibold hidden sm:table-cell">Price</th>
             <th className="px-3 py-2 text-left font-semibold hidden sm:table-cell">Sticker</th>
             <th className="px-3 py-2" />
           </tr>
@@ -116,7 +116,7 @@ export function CopiesTable({
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell">{c.price === null ? "–" : `₹${c.price}`}</td>
                 <td className="px-3 py-2 text-xs text-muted-foreground hidden sm:table-cell">
-                  {c.stickerPrintedAt ? new Date(c.stickerPrintedAt).toLocaleDateString("en-IN") : "বাকি"}
+                  {c.stickerPrintedAt ? new Date(c.stickerPrintedAt).toLocaleDateString("en-IN") : "Pending"}
                 </td>
                 <td className="px-3 py-2 text-right">
                   {state === "shelf" && (
@@ -126,17 +126,17 @@ export function CopiesTable({
                   )}
                   {(state === "shelf" || state === "loan") && (
                     <Button size="sm" variant="ghost" disabled={busyId === c.id} onClick={() => onLost(c)}>
-                      <SearchX /> হারানো
+                      <SearchX /> Lost
                     </Button>
                   )}
                   {state === "lost" && (
                     <Button size="sm" variant="ghost" disabled={busyId === c.id} onClick={() => setFinding(finding === c.id ? null : c.id)}>
-                      <SearchCheck /> পাওয়া গেছে
+                      <SearchCheck /> Found
                     </Button>
                   )}
                   {state === "withdrawn" && (
                     <Button size="sm" variant="ghost" disabled={busyId === c.id} onClick={() => onRestore(c)}>
-                      <ArchiveRestore /> Shelf-এ ফেরত
+                      <ArchiveRestore /> Back to shelf
                     </Button>
                   )}
                 </td>

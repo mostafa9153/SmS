@@ -55,9 +55,9 @@ function SlipPage() {
           }
         />
         {query.isLoading ? (
-          <Spinner label="লোড হচ্ছে…" className="py-16" />
+          <Spinner label="Loading…" className="py-16" />
         ) : slips.length === 0 ? (
-          <EmptyState icon={FileText} title="ছাপার মতো কিছু নেই" />
+          <EmptyState icon={FileText} title="Nothing to print" />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
             <PaperSettingsPanel settings={paper} papers={["A4", "A5"]} />

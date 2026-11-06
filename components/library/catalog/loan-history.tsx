@@ -9,7 +9,7 @@ const fmt = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00`).toLocaleD
 
 /** Latest loans of every copy of the title (50 most recent). */
 export function LoanHistory({ history }: { history: BookLoanHistory[] }) {
-  if (!history.length) return <EmptyState icon={History} title="এখনো কেউ নেয়নি" compact />;
+  if (!history.length) return <EmptyState icon={History} title="Never borrowed" compact />;
   return (
     <div className="rounded-2xl border bg-card overflow-hidden">
       <table className="w-full text-sm">
@@ -17,8 +17,8 @@ export function LoanHistory({ history }: { history: BookLoanHistory[] }) {
           <tr>
             <th className="px-3 py-2 text-left font-semibold">Borrower</th>
             <th className="px-3 py-2 text-left font-semibold hidden sm:table-cell">Code</th>
-            <th className="px-3 py-2 text-left font-semibold">নেওয়া</th>
-            <th className="px-3 py-2 text-left font-semibold">ফেরত</th>
+            <th className="px-3 py-2 text-left font-semibold">Issued</th>
+            <th className="px-3 py-2 text-left font-semibold">Returned</th>
           </tr>
         </thead>
         <tbody>
@@ -37,7 +37,7 @@ export function LoanHistory({ history }: { history: BookLoanHistory[] }) {
                   !h.returnedOn && "text-blue-600 font-medium",
                 )}
               >
-                {h.outcome === "lost" ? "হারানো" : h.returnedOn ? fmt(h.returnedOn) : `due ${fmt(h.dueOn)}`}
+                {h.outcome === "lost" ? "Lost" : h.returnedOn ? fmt(h.returnedOn) : `due ${fmt(h.dueOn)}`}
               </td>
             </tr>
           ))}

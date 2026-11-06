@@ -25,16 +25,16 @@ const ALIASES: Record<ImportField, string[]> = {
 
 /** The template's header row, in the order the columns appear. */
 export const IMPORT_TEMPLATE_HEADERS: [ImportField, string][] = [
-  ["title", "বইয়ের নাম"],
-  ["author", "লেখক"],
-  ["publisher", "প্রকাশক"],
-  ["category", "বিষয়"],
-  ["language", "ভাষা"],
-  ["edition", "সংস্করণ"],
+  ["title", "Title"],
+  ["author", "Author"],
+  ["publisher", "Publisher"],
+  ["category", "Category"],
+  ["language", "Language"],
+  ["edition", "Edition"],
   ["isbn", "ISBN"],
   ["legacy_no", "Accession No"],
-  ["copies", "কপির সংখ্যা"],
-  ["price", "দাম"],
+  ["copies", "Copies"],
+  ["price", "Price"],
 ];
 
 /** Header text without symbols or units: "Price (₹)" and "price" are the same column. */
@@ -152,17 +152,17 @@ export function parseImportRows(headers: string[], rows: Record<string, unknown>
     if (values.every((v) => !v)) return; // blank line
 
     const title = text(get(row, "title"));
-    if (!title) return errors.push({ row: rowNo, message: "বইয়ের নাম নেই" });
+    if (!title) return errors.push({ row: rowNo, message: "Title missing" });
 
     const copiesRaw = numberText(get(row, "copies"));
     const copies = copiesRaw === "" ? 1 : Number(copiesRaw);
     if (!Number.isInteger(copies) || copies < 0 || copies > 500) {
-      return errors.push({ row: rowNo, message: `কপির সংখ্যা ঠিক নেই: ${copiesRaw}` });
+      return errors.push({ row: rowNo, message: `Invalid copies: ${copiesRaw}` });
     }
     const priceRaw = numberText(get(row, "price"));
     const price = priceRaw === "" ? null : Number(priceRaw);
     if (price !== null && (!Number.isFinite(price) || price < 0 || price >= 100_000_000)) {
-      return errors.push({ row: rowNo, message: `দাম ঠিক নেই: ${priceRaw}` });
+      return errors.push({ row: rowNo, message: `Invalid price: ${priceRaw}` });
     }
 
     const book: ImportBook = {
@@ -182,11 +182,11 @@ export function parseImportRows(headers: string[], rows: Record<string, unknown>
       const t = titleKey(book.title);
       const a = titleKey(book.author);
       const near = entries.filter((e) => titleKey(e.book.title) === t && (!a || !titleKey(e.book.author)));
-      if (near.length > 1) return errors.push({ row: rowNo, message: `একই নামের একাধিক বই আগের সারিতে (${near.map((e) => e.rows[0]).join(", ")}), লেখক লিখুন` });
+      if (near.length > 1) return errors.push({ row: rowNo, message: `Several books with this title in earlier rows (${near.map((e) => e.rows[0]).join(", ")}); add the author` });
       same = near[0];
     }
     if (same) {
-      if (same.copies + copies > 500) return errors.push({ row: rowNo, message: "একই বইয়ের ৫০০টির বেশি কপি" });
+      if (same.copies + copies > 500) return errors.push({ row: rowNo, message: "More than 500 copies of one book" });
       same.rows.push(rowNo);
       same.copies += copies;
       same.price = same.price ?? (price === null ? null : Math.round(price * 100) / 100);
@@ -199,7 +199,7 @@ export function parseImportRows(headers: string[], rows: Record<string, unknown>
   });
 
   if (rows.length > IMPORT_MAX_ROWS) {
-    errors.push({ row: (rowNumbers?.[IMPORT_MAX_ROWS] ?? IMPORT_MAX_ROWS + 2), message: `একবারে ${IMPORT_MAX_ROWS}টির বেশি সারি নেওয়া যায় না` });
+    errors.push({ row: (rowNumbers?.[IMPORT_MAX_ROWS] ?? IMPORT_MAX_ROWS + 2), message: `At most ${IMPORT_MAX_ROWS} rows per import` });
   }
   return { entries, errors, missingTitleColumn: false };
 }

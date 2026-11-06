@@ -31,11 +31,11 @@ function EditBookForm({ book, onDone }: { book: BookRow; onDone: () => void }) {
     setSaving(true);
     try {
       const r = await libraryWrite(`/api/library/books/${book.id}`, "PATCH", bookPayload(values));
-      toastWithUndo("সংরক্ষিত", r.undoId, refresh);
+      toastWithUndo("Saved", r.undoId, refresh);
       refresh();
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "সংরক্ষণ হয়নি");
+      toast.error(err instanceof Error ? err.message : "Could not save");
     } finally {
       inFlight.current = false;
       setSaving(false);
@@ -46,18 +46,18 @@ function EditBookForm({ book, onDone }: { book: BookRow; onDone: () => void }) {
     <>
       <DialogHeader>
         <DialogTitle>
-          {book.book_code} সম্পাদনা
+          Edit {book.book_code}
         </DialogTitle>
       </DialogHeader>
       <div onKeyDown={(e) => isSubmitEnter(e) && save()}>
-        <BookFields values={values} onChange={setValues} titleError={values.title.trim() ? undefined : "নাম লিখুন"} autoFocus />
+        <BookFields values={values} onChange={setValues} titleError={values.title.trim() ? undefined : "Enter the title"} autoFocus />
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onDone}>
-          বাতিল
+          Cancel
         </Button>
         <Button onClick={save} disabled={saving || !values.title.trim()}>
-          {saving ? "সংরক্ষণ হচ্ছে…" : "সংরক্ষণ"}
+          {saving ? "Saving…" : "Save"}
         </Button>
       </DialogFooter>
     </>

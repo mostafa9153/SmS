@@ -40,7 +40,7 @@ export function useBookImport(onDone: () => void) {
       const sheet = rowsFromGrid(grid);
       const parsed = sheet ? parseImportRows(sheet.headers, sheet.rows, sheet.rowNumbers) : null;
       if (!parsed || parsed.missingTitleColumn) {
-        toast.error("\"বইয়ের নাম\" column পাওয়া যায়নি। Template দেখে নিন।");
+        toast.error("\"Title\" column not found. Check the template.");
         return reset();
       }
       setErrors(parsed.errors);
@@ -52,7 +52,7 @@ export function useBookImport(onDone: () => void) {
       requestId.current = newRequestId();
       setStep("preview");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "File পড়া যায়নি");
+      toast.error(err instanceof Error ? err.message : "Could not read the file");
       reset();
     }
   };
@@ -68,11 +68,11 @@ export function useBookImport(onDone: () => void) {
         { mode: "commit", entries },
         requestId.current,
       );
-      toastWithUndo(`${r.data.created}টি নতুন বই, ${r.data.copies}টি কপি যোগ হলো`, r.undoId, refresh);
+      toastWithUndo(`${r.data.created} new books, ${r.data.copies} copies added`, r.undoId, refresh);
       refresh();
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Import হয়নি");
+      toast.error(err instanceof Error ? err.message : "Import failed");
       setStep("preview");
     }
   };
@@ -81,7 +81,7 @@ export function useBookImport(onDone: () => void) {
     const XLSX = await import("xlsx");
     const ws = XLSX.utils.aoa_to_sheet([
       IMPORT_TEMPLATE_HEADERS.map(([, label]) => label),
-      ["পথের পাঁচালী", "বিভূতিভূষণ বন্দ্যোপাধ্যায়", "", "উপন্যাস", "বাংলা", "", "", "", 2, 120],
+      ["Pather Panchali", "Bibhutibhushan Bandyopadhyay", "", "Novel", "Bengali", "", "", "", 2, 120],
     ]);
     ws["!cols"] = IMPORT_TEMPLATE_HEADERS.map(([f]) => ({ wch: f === "title" || f === "author" ? 28 : 14 }));
     const wb = XLSX.utils.book_new();

@@ -32,7 +32,7 @@ export default function LibraryReceiptPage({ params }: { params: Promise<{ no: s
       <PrintPageStyle pageW={paper.pageW} pageH={paper.pageH} margins={paper.margins} />
       <div className="print:hidden space-y-4">
         <PageHeader
-          title={`রসিদ #${no}`}
+          title={`Receipt #${no}`}
           icon={ReceiptText}
           back="/library/fines"
           actions={
@@ -42,9 +42,9 @@ export default function LibraryReceiptPage({ params }: { params: Promise<{ no: s
           }
         />
         {receipt.isLoading ? (
-          <Spinner label="লোড হচ্ছে…" className="py-16" />
+          <Spinner label="Loading…" className="py-16" />
         ) : !receipt.data ? (
-          <EmptyState icon={ReceiptText} title="রসিদ পাওয়া যায়নি" />
+          <EmptyState icon={ReceiptText} title="Receipt not found" />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
             <PaperSettingsPanel settings={paper} papers={["A5", "A4"]} />

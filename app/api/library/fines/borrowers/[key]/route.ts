@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ key
   if (!gate.ok) return gate.response;
   try {
     const parsed = parseBorrowerKey(decodeURIComponent((await params).key));
-    if (!parsed) return NextResponse.json({ success: false, error: "Borrower পাওয়া যায়নি।" }, { status: 404 });
+    if (!parsed) return NextResponse.json({ success: false, error: "Borrower not found." }, { status: 404 });
     const ledger = await getBorrowerLedger(parsed.type, parsed.id);
     // The client shows the waive button only to those who may waive (S2); the waive route checks again.
     return NextResponse.json({ success: true, data: { ...ledger, canWaive: denyWaive(gate.auth) === null } });

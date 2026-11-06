@@ -46,7 +46,7 @@ function StickersPage() {
           title="Sticker print"
           icon={Tags}
           back="/library/books"
-          badge={<span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{s.list.length}টি · {s.pages.length} পাতা</span>}
+          badge={<span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{s.list.length} · {s.pages.length} pages</span>}
           actions={
             <Button onClick={s.print} disabled={!s.grid || s.problems.length > 0 || (!s.test && s.list.length === 0)}>
               <Printer /> {s.test ? "Test print" : "Print"}
@@ -56,13 +56,13 @@ function StickersPage() {
 
         {s.awaitingConfirm && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3">
-            <span className="text-sm font-semibold">{s.awaitingConfirm.length}টি sticker ঠিকমতো ছাপা হয়েছে?</span>
+            <span className="text-sm font-semibold">Did {s.awaitingConfirm.length} stickers print correctly?</span>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={s.dismissConfirm} disabled={s.saving}>
-                না
+                No
               </Button>
               <Button size="sm" onClick={s.confirmPrinted} disabled={s.saving}>
-                <CheckCircle2 /> হ্যাঁ, ছাপা হয়েছে
+                <CheckCircle2 /> Yes, printed
               </Button>
             </div>
           </div>
@@ -73,9 +73,9 @@ function StickersPage() {
         )}
 
         {s.loading || !s.grid ? (
-          <Spinner label="লোড হচ্ছে…" className="py-16" />
+          <Spinner label="Loading…" className="py-16" />
         ) : !s.test && s.total === 0 ? (
-          <EmptyState icon={Tags} title="ছাপার মতো কোনো sticker নেই" />
+          <EmptyState icon={Tags} title="No stickers to print" />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
             <div className="space-y-4">

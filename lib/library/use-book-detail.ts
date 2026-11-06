@@ -28,10 +28,10 @@ export function useBookDetail(id: string) {
     setBusyCopy(copy.id);
     try {
       const r = await libraryWrite("/api/library/desk", "POST", { action: withdrawn ? "withdraw" : "restore", copyId: copy.id });
-      toastWithUndo(withdrawn ? `${copy.code} withdrawn` : `${copy.code} shelf-এ ফেরত`, r.undoId, refresh);
+      toastWithUndo(withdrawn ? `${copy.code} withdrawn` : `${copy.code} back on shelf`, r.undoId, refresh);
       refresh();
     } catch (err) {
-      fail(err, "করা যায়নি");
+      fail(err, "Failed");
     } finally {
       setBusyCopy(null);
     }
@@ -39,16 +39,16 @@ export function useBookDetail(id: string) {
 
   /** R11: on a loan the borrower is charged overdue to today plus the lost charge. */
   const markLost = async (copy: BookCopy) => {
-    const ok = await confirm({ title: `${copy.code} হারানো?`, confirmLabel: "হারানো", destructive: true });
+    const ok = await confirm({ title: `Mark ${copy.code} lost?`, confirmLabel: "Lost", destructive: true });
     if (!ok) return;
     setBusyCopy(copy.id);
     try {
       const r = await libraryWrite<{ overdue: number; lost: number }>("/api/library/desk", "POST", { action: "lost", copyId: copy.id });
       const charged = r.data.overdue + r.data.lost;
-      toastWithUndo(charged > 0 ? `${copy.code} হারানো · ₹${charged}` : `${copy.code} হারানো`, r.undoId, refresh);
+      toastWithUndo(charged > 0 ? `${copy.code} lost · ₹${charged}` : `${copy.code} lost`, r.undoId, refresh);
       refresh();
     } catch (err) {
-      fail(err, "করা যায়নি");
+      fail(err, "Failed");
     } finally {
       setBusyCopy(null);
     }
@@ -62,12 +62,12 @@ export function useBookDetail(id: string) {
     setBusyCopy(copy.id);
     try {
       const r = await libraryWrite("/api/library/desk", "POST", { action: "found", copyId: copy.id, source, keepLostFine });
-      toastWithUndo(`${copy.code} পাওয়া গেছে`, r.undoId, refresh);
+      toastWithUndo(`${copy.code} found`, r.undoId, refresh);
       refresh();
       return "done";
     } catch (err) {
       if (err instanceof Error && err.message === LIBRARY_ERRORS.fine_has_payments[1]) return "touched";
-      fail(err, "করা যায়নি");
+      fail(err, "Failed");
       return "failed";
     } finally {
       setBusyCopy(null);
@@ -79,10 +79,10 @@ export function useBookDetail(id: string) {
     setBusy(true);
     try {
       const r = await libraryWrite(`/api/library/books/${id}`, "PATCH", { status: withdrawn ? "withdrawn" : "active" });
-      toastWithUndo(withdrawn ? "বই withdrawn" : "বই আবার সক্রিয়", r.undoId, refresh);
+      toastWithUndo(withdrawn ? "Book withdrawn" : "Book restored", r.undoId, refresh);
       refresh();
     } catch (err) {
-      fail(err, "করা যায়নি");
+      fail(err, "Failed");
     } finally {
       setBusy(false);
     }
@@ -90,7 +90,7 @@ export function useBookDetail(id: string) {
 
   const remove = async () => {
     if (!book.data) return;
-    const ok = await confirm({ title: `"${book.data.title}" মুছবেন?`, confirmLabel: "মুছে ফেলো", destructive: true });
+    const ok = await confirm({ title: `Delete "${book.data.title}"?`, confirmLabel: "Delete", destructive: true });
     if (!ok) return;
     setBusy(true);
     try {
@@ -99,10 +99,10 @@ export function useBookDetail(id: string) {
       router.push("/library/books");
       await queryClient.cancelQueries({ queryKey: libraryKeys.book(id) });
       queryClient.removeQueries({ queryKey: libraryKeys.book(id) });
-      toastWithUndo("বই মোছা হলো", r.undoId, refresh);
+      toastWithUndo("Book deleted", r.undoId, refresh);
       refresh();
     } catch (err) {
-      fail(err, "মোছা যায়নি");
+      fail(err, "Could not delete");
     } finally {
       setBusy(false);
     }

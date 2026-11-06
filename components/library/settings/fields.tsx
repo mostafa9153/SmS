@@ -35,7 +35,7 @@ export function NumField({
         min={0}
         step={step}
         value={value ?? ""}
-        placeholder={nullable ? "সীমা নেই" : undefined}
+        placeholder={nullable ? "No limit" : undefined}
         disabled={disabled}
         onChange={(e) => {
           const raw = e.target.value;

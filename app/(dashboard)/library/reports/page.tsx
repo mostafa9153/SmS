@@ -16,17 +16,17 @@ export default function LibraryReportsPage() {
       <PageHeader title="Library Reports" icon={BarChart3} back="/library" />
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Input type="date" value={r.from} onChange={(e) => r.setFrom(e.target.value)} className="w-40" aria-label="From" />
-        <span className="text-muted-foreground">থেকে</span>
+        <span className="text-muted-foreground">to</span>
         <Input type="date" value={r.to} onChange={(e) => r.setTo(e.target.value)} className="w-40" aria-label="To" />
       </div>
       {!r.valid ? (
-        <p className="py-12 text-center text-sm text-rose-600">তারিখের পরিসর ঠিক নেই</p>
+        <p className="py-12 text-center text-sm text-rose-600">Invalid date range</p>
       ) : r.report.isLoading || !data ? (
-        <Spinner label="লোড হচ্ছে…" className="py-16" />
+        <Spinner label="Loading…" className="py-16" />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          <RankedList title="সবচেয়ে বেশি পড়া বই" items={data.topBooks} unit="বার" />
-          <RankedList title="সক্রিয় পাঠক" items={data.topReaders} unit="টি বই" />
+          <RankedList title="Most borrowed books" items={data.topBooks} unit="times" />
+          <RankedList title="Top readers" items={data.topReaders} unit="books" />
           <NeverLentList books={data.neverLent} />
           <WaiverMonths months={data.waivers} />
         </div>

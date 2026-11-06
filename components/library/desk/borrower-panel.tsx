@@ -14,8 +14,8 @@ const DAY_MS = 86_400_000;
 /** Green: fine, amber: due within 2 days, red: overdue. */
 function loanTone(dueOn: string, today: string) {
   const days = Math.round((Date.parse(dueOn) - Date.parse(today)) / DAY_MS);
-  if (days < 0) return { cls: "border-l-rose-500 bg-rose-500/5", text: `${-days} দিন overdue`, textCls: "text-rose-600" };
-  if (days <= 2) return { cls: "border-l-amber-500 bg-amber-500/5", text: days === 0 ? "আজ due" : `${days} দিনে due`, textCls: "text-amber-600" };
+  if (days < 0) return { cls: "border-l-rose-500 bg-rose-500/5", text: `${-days} days overdue`, textCls: "text-rose-600" };
+  if (days <= 2) return { cls: "border-l-amber-500 bg-amber-500/5", text: days === 0 ? "Due today" : `Due in ${days} days`, textCls: "text-amber-600" };
   return { cls: "border-l-emerald-500 bg-emerald-500/5", text: `due ${dueOn}`, textCls: "text-muted-foreground" };
 }
 
@@ -110,9 +110,9 @@ export function BorrowerPanel({
           <h2 className="truncate text-xl font-bold">{profile.name}</h2>
           <p className="text-sm text-muted-foreground">{info.filter(Boolean).join(" · ")}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-sm">
-            <span className="rounded-full bg-muted px-2.5 py-0.5 font-medium">আর {Math.max(0, maxBooks - openLoans.length)}টা নিতে পারবে</span>
+            <span className="rounded-full bg-muted px-2.5 py-0.5 font-medium">Can take {Math.max(0, maxBooks - openLoans.length)} more</span>
             <span className={cn("rounded-full px-2.5 py-0.5 font-medium", balance.total > 0 ? "bg-rose-500/10 text-rose-600" : "bg-muted")}>
-              বাকি ₹{balance.total}
+              Due ₹{balance.total}
             </span>
             {!profile.active && <span className="rounded-full bg-rose-500/10 px-2.5 py-0.5 font-medium text-rose-600">Inactive</span>}
           </div>
@@ -135,7 +135,7 @@ export function BorrowerPanel({
             <p className="text-xs text-muted-foreground">{chip.code}</p>
           </div>
           <Button size="sm" onClick={onIssueChip} disabled={!canIssue} title="Alt+I">
-            দিন
+            Issue
           </Button>
         </div>
       )}
@@ -147,7 +147,7 @@ export function BorrowerPanel({
           ))}
         </div>
       ) : (
-        <p className="py-2 text-sm text-muted-foreground">হাতে কোনো বই নেই</p>
+        <p className="py-2 text-sm text-muted-foreground">No books borrowed</p>
       )}
 
       {leftMs <= PANEL_WARN_MS && (

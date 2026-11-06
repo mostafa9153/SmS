@@ -26,7 +26,7 @@ export async function PUT(request: Request) {
     const body = (await readJson(request)) as { changes?: unknown } | null;
     const check = validateSettingsPatch(await getLibrarySettings(), body?.changes);
     if (!check.ok) {
-      return NextResponse.json({ success: false, error: "Settings ঠিক নেই।", code: "invalid_settings", errors: check.errors }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Invalid settings.", code: "invalid_settings", errors: check.errors }, { status: 400 });
     }
     const result = await saveLibrarySettings({ settings: check.settings, actor: actorOf(gate.auth) });
     return NextResponse.json({ success: true, data: result.data, undoId: result.undoId });

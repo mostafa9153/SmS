@@ -84,9 +84,9 @@ export function libraryWrite<T>(
 }
 
 export const COPY_STATUS_META = {
-  shelf: { label: "Shelf-এ", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-  loan: { label: "ধার দেওয়া", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
-  lost: { label: "হারানো", className: "bg-rose-500/10 text-rose-700 dark:text-rose-400" },
+  shelf: { label: "On shelf", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  loan: { label: "On loan", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+  lost: { label: "Lost", className: "bg-rose-500/10 text-rose-700 dark:text-rose-400" },
   withdrawn: { label: "Withdrawn", className: "bg-muted text-muted-foreground" },
 } as const;
 

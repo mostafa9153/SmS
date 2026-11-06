@@ -21,10 +21,10 @@ describe("prefixProblem (C8)", () => {
   });
 
   it("explains what is wrong", () => {
-    expect(prefixProblem("")).toBe("Prefix লিখুন");
-    expect(prefixProblem("B1")).toBe("শুধু ইংরেজি অক্ষর");
-    expect(prefixProblem("B/")).toBe("শুধু ইংরেজি অক্ষর");
-    expect(prefixProblem("ABCDE")).toBe("সর্বোচ্চ ৪টি অক্ষর");
+    expect(prefixProblem("")).toBe("Enter a prefix");
+    expect(prefixProblem("B1")).toBe("English letters only");
+    expect(prefixProblem("B/")).toBe("English letters only");
+    expect(prefixProblem("ABCDE")).toBe("At most 4 letters");
   });
 });
 
@@ -50,7 +50,7 @@ describe("settingsProblems", () => {
 
   it("flags a sticker grid that does not fit A4", () => {
     const s = base({ sticker: { ...DEFAULT_LIBRARY_SETTINGS.sticker, cols: 4 } });
-    expect(settingsProblems(s).sticker).toMatch(/চওড়ায়/);
+    expect(settingsProblems(s).sticker).toMatch(/too wide/);
   });
 });
 
@@ -127,21 +127,21 @@ describe("showInvisible (Scanner test)", () => {
 
 describe("describeDiagnosis", () => {
   it("says a match is a match", () => {
-    expect(describeDiagnosis(diagnoseScan("sch/1", "SCH/1"))).toBe("মিলেছে");
+    expect(describeDiagnosis(diagnoseScan("sch/1", "SCH/1"))).toBe("Matched");
   });
 
   it("names lost leading zeros", () => {
-    expect(describeDiagnosis(diagnoseScan("123", "00123"))).toMatch(/শূন্য/);
+    expect(describeDiagnosis(diagnoseScan("123", "00123"))).toMatch(/Leading zeros/);
   });
 
   it("points at the character a wrong keyboard layout changed", () => {
     const text = describeDiagnosis(diagnoseScan("SCH-2026", "SCH/2026"));
-    expect(text).toContain("4 নম্বর");
+    expect(text).toContain("Character 4");
     expect(text).toContain("layout");
   });
 
   it("reports a length mismatch", () => {
-    expect(describeDiagnosis(diagnoseScan("SCH/20", "SCH/2026"))).toMatch(/কম বা বেশি/);
+    expect(describeDiagnosis(diagnoseScan("SCH/20", "SCH/2026"))).toMatch(/missing or extra/);
   });
 });
 

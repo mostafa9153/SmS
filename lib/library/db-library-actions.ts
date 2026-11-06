@@ -177,7 +177,7 @@ export function returnLoan(input: { loanId: string; requestId: string; actor: Ac
       const { fine } = await overdueNow(loan, today);
       return { p_loan_id: loan.id, p_returned_on: today, p_fine: fine };
     },
-    label: async () => copyLabel(copyId || (await getLoan(input.loanId)).copy_id, "ফেরত"),
+    label: async () => copyLabel(copyId || (await getLoan(input.loanId)).copy_id, "Return"),
     data: (r) => ({ loanId: String(r.loan_id), fine: num(r.fine), fineId: str(r.fine_id) }),
   });
 }
@@ -241,7 +241,7 @@ export function returnToRenew(input: { loanId: string; requestId: string; actor:
       copyId = loan.copy_id;
       return args;
     },
-    label: async (r) => copyLabel(copyId, `ফেরতের বদলে renew → ${r.due_on}`),
+    label: async (r) => copyLabel(copyId, `Renew instead of return → ${r.due_on}`),
     data: (r) => ({ loanId: String(r.loan_id), dueOn: String(r.due_on), fine: num(r.fine) }),
   });
 }
@@ -273,7 +273,7 @@ export function markLost(input: { copyId: string; replaced?: boolean; requestId:
       }
       return { p_copy_id: input.copyId, p_lost_on: today, p_overdue_fine: overdue, p_lost_amount: lost };
     },
-    label: () => copyLabel(input.copyId, "হারানো"),
+    label: () => copyLabel(input.copyId, "Lost"),
     data: (r) => ({ overdue: num(r.overdue), lost: num(r.lost), loanId: str(r.loan_id) }),
   });
 }
@@ -318,7 +318,7 @@ export function markFound(input: {
         p_keep_lost_fine: input.keepLostFine ?? false,
       };
     },
-    label: () => copyLabel(input.copyId, "পাওয়া গেছে"),
+    label: () => copyLabel(input.copyId, "Found"),
     data: (r) => ({ extraFineId: str(r.extra_fine_id) }),
   });
 }
@@ -346,7 +346,7 @@ export function markDamaged(input: {
       if (!Number.isFinite(input.amount) || input.amount <= 0 || input.amount > limit) throw new LibraryError("invalid_amount", String(limit));
       return { p_loan_id: loan.id, p_amount: input.amount, p_withdraw: input.withdraw, p_note: input.note?.trim() || null };
     },
-    label: () => copyLabel(copyId, `ক্ষতিগ্রস্ত (₹${input.amount})`),
+    label: () => copyLabel(copyId, `Damaged (₹${input.amount})`),
     data: (r) => ({ fineId: str(r.fine_id) }),
   });
 }
@@ -363,7 +363,7 @@ export function recordPayment(input: { lines: { fineId: string; amount: number }
       if (!input.lines.length) throw new LibraryError("invalid_amount");
       return { p_lines: input.lines.map((l) => ({ fine_id: l.fineId, amount: l.amount })), p_paid_on: libraryToday() };
     },
-    label: async (r) => `রসিদ #${r.receipt_no} (₹${r.total})`,
+    label: async (r) => `Receipt #${r.receipt_no} (₹${r.total})`,
     data: (r) => ({ receiptNo: num(r.receipt_no), total: num(r.total) }),
   });
 }
@@ -375,7 +375,7 @@ export function recordRefund(input: { fineId: string; amount: number; note?: str
     requestId: input.requestId,
     actor: input.actor,
     plan: async () => ({ p_fine_id: input.fineId, p_amount: input.amount, p_paid_on: libraryToday(), p_note: input.note?.trim() || null }),
-    label: async (r) => `ফেরত রসিদ #${r.receipt_no} (₹${r.amount})`,
+    label: async (r) => `Refund receipt #${r.receipt_no} (₹${r.amount})`,
     data: (r) => ({ receiptNo: num(r.receipt_no), amount: num(r.amount) }),
   });
 }
@@ -422,7 +422,7 @@ export function waiveFine(input: {
       if (!w.ok) throw new LibraryError(w.reason === "nothing_due" ? "nothing_due" : w.reason === "too_much" ? "over_balance" : "invalid_amount");
       return { p_fine_id: input.fineId, p_amount: w.amount, p_reason: input.reason };
     },
-    label: async (r) => `মওকুফ ₹${r.amount}`,
+    label: async (r) => `Waived ₹${r.amount}`,
     data: (r) => ({ amount: num(r.amount) }),
   });
 }
@@ -447,7 +447,7 @@ export async function saveLibrarySettings(input: { settings: LibrarySettings; ac
     ? await recordUndo({
         actorId: input.actor.id,
         action: "library.update_settings",
-        label: "Library settings বদল",
+        label: "Library settings changed",
         entity: "library_settings",
         entityId: "1",
         steps: [{ op: "upsert", table: "library_settings", rows: before.map((r) => ({ id: r.id, rules: r.rules })) }],
@@ -496,7 +496,7 @@ export function createBook(input: { book: BookInput; copies: number; price: numb
       if (!fields.title) throw new LibraryError("title_required");
       return { p_book: { ...fields, title_key: titleKey(fields.title) }, p_count: input.copies, p_price: input.price };
     },
-    label: async () => `বই যোগ: "${cleanBookInput(input.book).title}"`,
+    label: async () => `Book added: "${cleanBookInput(input.book).title}"`,
     data: (r) => ({ bookId: String(r.book_id), bookCode: String(r.book_code), copyIds: (r.copy_ids as string[]) ?? [] }),
   });
 }
@@ -509,7 +509,7 @@ export function addCopies(input: { bookId: string; count: number; price: number 
     actor: input.actor,
     entityId: input.bookId,
     plan: async () => ({ p_book_id: input.bookId, p_count: input.count, p_price: input.price }),
-    label: async () => `"${(await getBook(input.bookId)).title}"-এ ${input.count}টি কপি যোগ`,
+    label: async () => `${input.count} copies added to "${(await getBook(input.bookId)).title}"`,
     data: (r) => ({ copyIds: (r.copy_ids as string[]) ?? [] }),
   });
 }
@@ -535,7 +535,7 @@ export async function updateBook(input: { bookId: string; changes: Partial<BookI
   const undoId = await recordUndo({
     actorId: input.actor.id,
     action: "library.update_book",
-    label: `বই বদল: "${after.title}"`,
+    label: `Book edited: "${after.title}"`,
     entity: "library_books",
     entityId: input.bookId,
     steps: [{ op: "upsert", table: "library_books", rows: restore }],
@@ -552,7 +552,7 @@ export function deleteBook(input: { bookId: string; requestId: string; actor: Ac
     requestId: input.requestId,
     actor: input.actor,
     plan: async () => ({ p_book_id: input.bookId }),
-    label: async (r) => `বই মোছা: "${r.title}"`,
+    label: async (r) => `Book deleted: "${r.title}"`,
     data: (r) => ({ bookId: String(r.book_id) }),
   });
 }
@@ -566,7 +566,7 @@ export function setCopyWithdrawn(input: { copyId: string; withdrawn: boolean; re
     actor: input.actor,
     entityId: input.copyId,
     plan: async () => ({ p_copy_id: input.copyId, p_withdrawn: input.withdrawn, p_reason: input.reason?.trim() || null }),
-    label: () => copyLabel(input.copyId, input.withdrawn ? "withdrawn" : "আবার shelf-এ"),
+    label: () => copyLabel(input.copyId, input.withdrawn ? "withdrawn" : "back on shelf"),
     data: (r) => ({ copyId: String(r.copy_id) }),
   });
 }
@@ -591,7 +591,7 @@ export async function importBooks(input: { entries: ImportEntry[]; requestId: st
       if (!items.length) throw new LibraryError("nothing_to_import");
       return { p_items: items };
     },
-    label: async (r) => `Excel import: ${r.created}টি নতুন বই, ${r.copies}টি কপি`,
+    label: async (r) => `Excel import: ${r.created} new books, ${r.copies} copies`,
     data: (r) => ({ created: num(r.created), copies: num(r.copies), skipped }),
   });
 }
@@ -604,7 +604,7 @@ export function markStickers(input: { copyIds: string[]; printed: boolean; reque
     requestId: input.requestId,
     actor: input.actor,
     plan: async () => ({ p_copy_ids: input.copyIds, p_printed: input.printed }),
-    label: async (r) => `${r.changed}টি sticker ${input.printed ? "ছাপা হয়েছে" : "আবার বাকি"}`,
+    label: async (r) => `${r.changed} stickers ${input.printed ? "printed" : "marked unprinted"}`,
     data: (r) => ({ changed: num(r.changed) }),
   });
 }

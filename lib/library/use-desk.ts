@@ -21,7 +21,7 @@ export interface Activity {
   label: string;
   undoId?: string | null;
   undone?: boolean;
-  /** Set on a return row: offers [বরং Renew] and [ক্ষতিগ্রস্ত]. */
+  /** Set on a return row: offers [Renew instead] and [Damaged]. */
   loanId?: string;
   error?: string;
   retry?: () => void;
@@ -110,7 +110,7 @@ export function useDesk() {
     if (!panel) return;
     const key = panel.borrower;
     if (panel.openedBy === "card" && live.current.summary?.profile.key === key) return;
-    loadSummary(key).catch(() => toast.error("Borrower-এর তথ্য আনা যায়নি।"));
+    loadSummary(key).catch(() => toast.error("Could not load borrower."));
   }, [panel, loadSummary]);
 
   const reloadPanel = useCallback(() => {
@@ -138,7 +138,7 @@ export function useDesk() {
           kind: spec.kind,
           status: "failed",
           label: spec.label({}),
-          error: err instanceof Error ? err.message : "হয়নি",
+          error: err instanceof Error ? err.message : "Failed",
           retry: retryable ? () => void performRef.current(spec, requestId) : undefined,
         });
         return false;
@@ -184,7 +184,7 @@ export function useDesk() {
               if (n) {
                 setNotice({
                   kind: "pass_on",
-                  text: `${ctx.holderName}-এর বই ফেরত হলো`,
+                  text: `Returned from ${ctx.holderName}`,
                   copyId: n.copyId,
                   title: ctx.title,
                   to: n.passOnTo,
@@ -200,7 +200,7 @@ export function useDesk() {
           return;
         case "hold_chip":
           setChip({ copyId: action.copyId, code: ctx.code, title: ctx.title });
-          setNotice({ kind: "info", text: `${ctx.title} — এবার student-এর card scan করুন` });
+          setNotice({ kind: "info", text: `${ctx.title} — now scan the borrower card` });
           signal("ok");
           return;
         case "open_panel":
@@ -214,7 +214,7 @@ export function useDesk() {
           signal("warn");
           return;
         case "notice_withdrawn":
-          setNotice({ kind: "withdrawn", text: `${ctx.title} withdrawn করা আছে`, copyId: action.copyId });
+          setNotice({ kind: "withdrawn", text: `${ctx.title} is withdrawn`, copyId: action.copyId });
           signal("warn");
           return;
         case "choose":
@@ -222,7 +222,7 @@ export function useDesk() {
           signal("warn");
           return;
         case "unknown":
-          record({ id: newRequestId(), at: Date.now(), kind: "scan", status: "failed", label: `চেনা যায়নি: ${action.code}` });
+          record({ id: newRequestId(), at: Date.now(), kind: "scan", status: "failed", label: `Not recognised: ${action.code}` });
           signal("error");
           return;
       }
@@ -242,7 +242,7 @@ export function useDesk() {
           at: Date.now(),
           kind: "scan",
           status: "failed",
-          label: `Scan হয়নি: ${code}`,
+          label: `Scan failed: ${code}`,
           error: err instanceof Error ? err.message : undefined,
           retry: () => void resolveRef.current(code, requestId),
         });
@@ -334,26 +334,26 @@ export function useDesk() {
   const renewInstead = (a: Activity) => {
     if (!a.loanId) return;
     const title = a.label.split(" ← ")[0];
-    void perform({ body: { action: "return_to_renew", loanId: a.loanId }, kind: "renew", label: (d) => `${title} ফেরতের বদলে renew${d.dueOn ? ` → ${d.dueOn}` : ""}` });
+    void perform({ body: { action: "return_to_renew", loanId: a.loanId }, kind: "renew", label: (d) => `${title} renewed instead of return${d.dueOn ? ` → ${d.dueOn}` : ""}` });
   };
 
   const markFound = (source: "borrower" | "library") => {
     if (prompt?.kind !== "found") return;
     const p = prompt;
     setPrompt(null);
-    void perform({ body: { action: "found", copyId: p.copyId, source }, kind: "found", label: () => `${p.title} পাওয়া গেছে` });
+    void perform({ body: { action: "found", copyId: p.copyId, source }, kind: "found", label: () => `${p.title} found` });
   };
 
   const markDamaged = (amount: number, withdraw: boolean) => {
     if (prompt?.kind !== "damaged") return;
     const p = prompt;
     setPrompt(null);
-    void perform({ body: { action: "damaged", loanId: p.loanId, amount, withdraw }, kind: "damaged", label: () => `${p.title} ক্ষতিগ্রস্ত (₹${amount})` });
+    void perform({ body: { action: "damaged", loanId: p.loanId, amount, withdraw }, kind: "damaged", label: () => `${p.title} damaged (₹${amount})` });
   };
 
   const restoreCopy = (copyId: string) => {
     setNotice(null);
-    void perform({ body: { action: "restore", copyId }, kind: "restore", label: () => "Shelf-এ ফেরত" });
+    void perform({ body: { action: "restore", copyId }, kind: "restore", label: () => "Back to shelf" });
   };
 
   const undo = async (a: Activity) => {
@@ -365,7 +365,7 @@ export function useDesk() {
       reloadPanel();
     } catch (err) {
       signal("error");
-      toast.error(err instanceof Error ? err.message : "Undo হয়নি");
+      toast.error(err instanceof Error ? err.message : "Undo failed");
     }
   };
 

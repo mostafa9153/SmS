@@ -7,10 +7,10 @@ import type { Activity } from "@/lib/library/use-desk";
 
 const KIND_LABEL: Record<Activity["kind"], string> = {
   issue: "Issue",
-  return: "ফেরত",
+  return: "Return",
   renew: "Renew",
-  found: "পাওয়া গেছে",
-  damaged: "ক্ষতিগ্রস্ত",
+  found: "Found",
+  damaged: "Damaged",
   restore: "Shelf",
   scan: "Scan",
 };
@@ -32,7 +32,7 @@ export function ActivityList({
 }) {
   // Failed rows stay on top until handled (W6).
   const rows = [...activity.filter((a) => a.status === "failed"), ...activity.filter((a) => a.status === "ok")];
-  if (!rows.length) return <p className="py-8 text-center text-sm text-muted-foreground">আজ এখনো কিছু হয়নি</p>;
+  if (!rows.length) return <p className="py-8 text-center text-sm text-muted-foreground">Nothing yet today</p>;
 
   return (
     <ul className="space-y-1.5">
@@ -59,21 +59,21 @@ export function ActivityList({
           <div className="flex flex-wrap gap-1.5">
             {a.status === "failed" && a.retry && (
               <Button size="sm" variant="outline" onClick={a.retry}>
-                <RefreshCw /> আবার চেষ্টা
+                <RefreshCw /> Retry
               </Button>
             )}
             {a.status === "failed" && (
               <Button size="sm" variant="ghost" onClick={() => onDismiss(a.id)}>
-                <X /> সরাও
+                <X /> Dismiss
               </Button>
             )}
             {a.status === "ok" && !a.undone && a.loanId && a.kind === "return" && (
               <>
                 <Button size="sm" variant="outline" onClick={() => onRenewInstead(a)} title="Alt+R">
-                  বরং Renew
+                  Renew instead
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => onDamaged(a)}>
-                  ক্ষতিগ্রস্ত
+                  Damaged
                 </Button>
               </>
             )}

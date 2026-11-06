@@ -66,7 +66,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** "VIII A", or just the class, or a dash. */
 export function classLabel(cls: string | null, section: string | null): string {
-  return [cls, section].filter(Boolean).join(" ") || "Class নেই";
+  return [cls, section].filter(Boolean).join(" ") || "No class";
 }
 
 const rollNumber = (roll: string | null) => (roll !== null && /^\d+$/.test(roll) ? Number(roll) : Number.MAX_SAFE_INTEGER);

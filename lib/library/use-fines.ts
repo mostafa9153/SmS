@@ -38,7 +38,7 @@ export function useDayReport(day: string) {
   });
 }
 
-export const COLLECT_ERRORS = { none: "কোনো fine বাছাই করা হয়নি।", too_much: "বাকির চেয়ে বেশি দেওয়া যাবে না।", invalid: "টাকার পরিমাণ ঠিক নেই।" } as const;
+export const COLLECT_ERRORS = { none: "No fine selected.", too_much: "Cannot pay more than due.", invalid: "Invalid amount." } as const;
 
 /** State and handlers for the Fines page: pick a borrower, collect, waive, refund, void. */
 export function useFines() {
@@ -81,7 +81,7 @@ export function useFines() {
       refresh();
       return true;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "হয়নি");
+      toast.error(err instanceof Error ? err.message : "Failed");
       return false;
     } finally {
       setBusy(false);
@@ -100,7 +100,7 @@ export function useFines() {
       const r = await libraryWrite<{ receiptNo: number; total: number }>("/api/library/fines", "POST", { action: "pay", lines: collect.lines });
       setPicks({});
       setLastReceipt(r.data.receiptNo);
-      toastWithUndo(`রসিদ #${r.data.receiptNo}: ₹${r.data.total} আদায়`, r.undoId, refresh);
+      toastWithUndo(`Receipt #${r.data.receiptNo}: ₹${r.data.total} collected`, r.undoId, refresh);
     });
   };
 
@@ -108,7 +108,7 @@ export function useFines() {
     run(async () => {
       const r = await libraryWrite<{ amount: number }>("/api/library/fines/waive", "POST", { fineId, mode, custom, reason });
       unpick(fineId);
-      toastWithUndo(`₹${r.data.amount} মওকুফ`, r.undoId, refresh);
+      toastWithUndo(`₹${r.data.amount} waived`, r.undoId, refresh);
     });
 
   const refund = (fineId: string, amount: number, note: string) =>
@@ -121,16 +121,16 @@ export function useFines() {
       });
       unpick(fineId);
       setLastReceipt(r.data.receiptNo);
-      toastWithUndo(`ফেরত রসিদ #${r.data.receiptNo}: ₹${r.data.amount}`, r.undoId, refresh);
+      toastWithUndo(`Refund receipt #${r.data.receiptNo}: ₹${r.data.amount}`, r.undoId, refresh);
     });
 
   /** R13: a receipt entered by mistake. Not undoable, so it is confirmed first. */
   const voidReceipt = async (receiptNo: number, reason: string) => {
-    const ok = await confirm({ title: `রসিদ #${receiptNo} বাতিল করবেন?`, confirmLabel: "বাতিল করো", destructive: true });
+    const ok = await confirm({ title: `Void receipt #${receiptNo}?`, confirmLabel: "Void", destructive: true });
     if (!ok) return false;
     return run(async () => {
       await libraryWrite("/api/library/fines", "POST", { action: "void", receiptNo, reason });
-      toast.success(`রসিদ #${receiptNo} বাতিল`);
+      toast.success(`Receipt #${receiptNo} voided`);
     });
   };
 

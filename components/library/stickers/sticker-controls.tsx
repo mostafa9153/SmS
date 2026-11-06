@@ -34,7 +34,7 @@ export function StickerControls({
     <Card>
       <CardContent className="space-y-4 p-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">কোন ঘর থেকে শুরু</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Start from cell</p>
           <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))` }}>
             {Array.from({ length: perSheet(grid) }, (_, cell) => (
               <button
@@ -55,11 +55,11 @@ export function StickerControls({
         </div>
 
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Printer offset (mm, এই কম্পিউটারে)</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Printer offset (mm, this computer)</p>
           <div className="grid grid-cols-2 gap-2">
             {(["x", "y"] as const).map((axis) => (
               <label key={axis} className="flex items-center gap-2 text-sm">
-                <span className="w-16 text-muted-foreground">{axis === "x" ? "ডানে →" : "নিচে ↓"}</span>
+                <span className="w-16 text-muted-foreground">{axis === "x" ? "Right →" : "Down ↓"}</span>
                 <Input
                   type="number"
                   step="0.5"
@@ -75,12 +75,12 @@ export function StickerControls({
         </div>
 
         <label className="flex items-center justify-between gap-2 text-sm">
-          <span>সাধারণ কাগজে test print</span>
+          <span>Test print on plain paper</span>
           <Switch checked={test} onCheckedChange={onTest} />
         </label>
         {showUnprintedFilter && (
           <label className="flex items-center justify-between gap-2 text-sm">
-            <span>শুধু বাকিগুলো</span>
+            <span>Unprinted only</span>
             <Switch checked={onlyUnprinted} onCheckedChange={onOnlyUnprinted} />
           </label>
         )}

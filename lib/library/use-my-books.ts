@@ -17,7 +17,7 @@ export function useMyBooks() {
   });
 }
 
-/** The "আমার বই" page: my books plus renew. */
+/** The "My books" page: my books plus renew. */
 export function useMyBooksPage() {
   const books = useMyBooks();
   const refresh = useRefreshLibrary();
@@ -27,10 +27,10 @@ export function useMyBooksPage() {
     setBusy(loanId);
     try {
       const r = await libraryWrite<{ dueOn: string }>("/api/library/my/renew", "POST", { loanId });
-      toastWithUndo(`${title}: নতুন due ${r.data.dueOn}`, r.undoId, refresh);
+      toastWithUndo(`${title}: new due ${r.data.dueOn}`, r.undoId, refresh);
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Renew হয়নি");
+      toast.error(err instanceof Error ? err.message : "Renew failed");
     } finally {
       setBusy(null);
     }

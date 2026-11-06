@@ -19,9 +19,9 @@ export function ImportBooksDialog({ open, onOpenChange }: { open: boolean; onOpe
 }
 
 const KIND_META: Record<ImportPlanItem["kind"], { label: string; className: string }> = {
-  new: { label: "নতুন", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-  add: { label: "কপি যোগ", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
-  skip: { label: "বাদ", className: "bg-muted text-muted-foreground" },
+  new: { label: "New", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  add: { label: "Add copies", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+  skip: { label: "Skip", className: "bg-muted text-muted-foreground" },
 };
 
 function ImportBody({ onDone }: { onDone: () => void }) {
@@ -31,14 +31,14 @@ function ImportBody({ onDone }: { onDone: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Excel থেকে বই যোগ</DialogTitle>
+        <DialogTitle>Import books from Excel</DialogTitle>
       </DialogHeader>
 
       {im.step === "pick" && (
         <div className="space-y-3">
           <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 cursor-pointer hover:bg-muted/40">
             <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-            <span className="text-sm font-semibold">Excel বা CSV file বাছাই করুন</span>
+            <span className="text-sm font-semibold">Choose an Excel or CSV file</span>
             <input
               type="file"
               accept=".xlsx,.xls,.csv"
@@ -56,22 +56,22 @@ function ImportBody({ onDone }: { onDone: () => void }) {
         </div>
       )}
 
-      {im.step === "reading" && <Spinner label={`${im.fileName} পড়া হচ্ছে…`} className="py-12" />}
+      {im.step === "reading" && <Spinner label={`Reading ${im.fileName}…`} className="py-12" />}
 
       {(im.step === "preview" || im.step === "saving") && (
         <div className="space-y-3 min-w-0">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <StatCard label="নতুন বই" value={im.counts.newTitles} />
-            <StatCard label="নতুন বইয়ের কপি" value={im.counts.newCopies} />
-            <StatCard label="আগের বইয়ে কপি" value={im.counts.added} />
-            <StatCard label="বাদ / ভুল" value={im.counts.skipped + im.errors.length} valueClassName={im.counts.skipped + im.errors.length ? "text-amber-600" : undefined} />
+            <StatCard label="New titles" value={im.counts.newTitles} />
+            <StatCard label="Copies of new titles" value={im.counts.newCopies} />
+            <StatCard label="Copies to existing" value={im.counts.added} />
+            <StatCard label="Skipped / errors" value={im.counts.skipped + im.errors.length} valueClassName={im.counts.skipped + im.errors.length ? "text-amber-600" : undefined} />
           </div>
 
           {im.errors.length > 0 && (
             <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-sm max-h-32 overflow-y-auto">
               {im.errors.map((e) => (
                 <div key={`${e.row}-${e.message}`}>
-                  সারি {e.row}: {e.message}
+                  Row {e.row}: {e.message}
                 </div>
               ))}
             </div>
@@ -81,10 +81,10 @@ function ImportBody({ onDone }: { onDone: () => void }) {
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-semibold">সারি</th>
-                  <th className="px-2 py-1.5 text-left font-semibold">বই</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">কপি</th>
-                  <th className="px-2 py-1.5 text-left font-semibold">ফল</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">Row</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">Book</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Copies</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">Result</th>
                 </tr>
               </thead>
               <tbody>
@@ -115,15 +115,15 @@ function ImportBody({ onDone }: { onDone: () => void }) {
         {im.step === "preview" || im.step === "saving" ? (
           <>
             <Button variant="outline" onClick={im.reset} disabled={im.step === "saving"}>
-              অন্য file
+              Another file
             </Button>
             <Button onClick={im.commit} disabled={!toImport || im.step === "saving"}>
-              <Upload /> {im.step === "saving" ? "Import হচ্ছে…" : `Import করো (${toImport})`}
+              <Upload /> {im.step === "saving" ? "Importing…" : `Import (${toImport})`}
             </Button>
           </>
         ) : (
           <Button variant="outline" onClick={onDone}>
-            বন্ধ
+            Close
           </Button>
         )}
       </DialogFooter>

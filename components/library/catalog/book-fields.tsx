@@ -20,7 +20,7 @@ export const EMPTY_BOOK: BookFormValues = {
   author: "",
   publisher: "",
   category: "",
-  language: "বাংলা",
+  language: "Bengali",
   edition: "",
   isbn: "",
   legacy_no: "",
@@ -33,14 +33,14 @@ export function toBookValues(b: Partial<Record<keyof BookFormValues, string | nu
 }
 
 const FIELDS: { key: keyof BookFormValues; label: string; full?: boolean }[] = [
-  { key: "title", label: "বইয়ের নাম *", full: true },
-  { key: "author", label: "লেখক" },
-  { key: "publisher", label: "প্রকাশক" },
-  { key: "category", label: "বিষয়" },
-  { key: "language", label: "ভাষা" },
-  { key: "edition", label: "সংস্করণ" },
+  { key: "title", label: "Title *", full: true },
+  { key: "author", label: "Author" },
+  { key: "publisher", label: "Publisher" },
+  { key: "category", label: "Category" },
+  { key: "language", label: "Language" },
+  { key: "edition", label: "Edition" },
   { key: "isbn", label: "ISBN" },
-  { key: "legacy_no", label: "পুরোনো Accession No." },
+  { key: "legacy_no", label: "Old Accession No." },
 ];
 
 export function BookFields({

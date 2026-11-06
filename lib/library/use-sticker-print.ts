@@ -88,11 +88,11 @@ export function useStickerPrint(source: StickerSource) {
         { copyIds: awaitingConfirm, printed: true },
         requestId.current,
       );
-      toastWithUndo(`${r.data.changed}টি sticker ছাপা হয়েছে`, r.undoId, refresh);
+      toastWithUndo(`${r.data.changed} stickers marked printed`, r.undoId, refresh);
       setAwaitingConfirm(null);
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "চিহ্নিত করা যায়নি");
+      toast.error(err instanceof Error ? err.message : "Could not mark");
     } finally {
       setSaving(false);
     }
