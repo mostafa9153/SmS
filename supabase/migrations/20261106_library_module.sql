@@ -697,6 +697,58 @@ BEGIN
     'fine', coalesce(library_amount(p_fine), 0)));
 END $$;
 
+-- ---------- RPC: Excel import (K2) ----------
+
+-- The whole confirmed import in one transaction, one event, one undo.
+-- p_items: [{"book_id": uuid, "copies": n, "price": x}  -- more copies of an existing title
+--          | {"book": {title, title_key, author, ...}, "copies": n, "price": x}]  -- a new title
+CREATE OR REPLACE FUNCTION public.library_import_books(p_items jsonb, p_actor uuid, p_request_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE
+  v_prev jsonb; v_item jsonb; b library_books%ROWTYPE; v_ids uuid[]; v_count int; v_price numeric;
+  v_out jsonb := '[]'::jsonb; v_created int := 0; v_copies int := 0; v_ev uuid;
+BEGIN
+  v_prev := library_begin_request(p_request_id, p_actor, 'import');
+  IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
+  IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0
+     OR jsonb_array_length(p_items) > 2000 THEN
+    PERFORM library_fail('invalid_count');
+  END IF;
+  -- Existing titles locked up front in id order (two imports never deadlock).
+  PERFORM 1 FROM library_books
+   WHERE id IN (SELECT library_uuid(x, 'book_id') FROM jsonb_array_elements(p_items) x WHERE x ? 'book_id')
+   ORDER BY id FOR UPDATE;
+
+  FOR v_item IN SELECT value FROM jsonb_array_elements(p_items) LOOP
+    v_count := coalesce((v_item ->> 'copies')::int, 0);
+    v_price := library_amount((v_item ->> 'price')::numeric);
+    IF v_item ? 'book_id' THEN
+      SELECT * INTO b FROM library_books WHERE id = library_uuid(v_item, 'book_id');
+      IF NOT FOUND THEN PERFORM library_fail('book_not_found'); END IF;
+      IF b.status <> 'active' THEN PERFORM library_fail('book_withdrawn', b.title); END IF;
+      IF v_count < 1 THEN PERFORM library_fail('invalid_count'); END IF;
+      v_ids := library_insert_copies(b, v_count, v_price);
+      v_out := v_out || jsonb_build_object('book_id', b.id, 'copy_ids', to_jsonb(v_ids), 'created', false);
+    ELSE
+      IF length(trim(coalesce(v_item #>> '{book,title}', ''))) = 0 THEN PERFORM library_fail('title_required'); END IF;
+      IF v_count < 0 OR v_count > 500 THEN PERFORM library_fail('invalid_count'); END IF;
+      INSERT INTO library_books (title, title_key, author, publisher, category, language, isbn, edition, legacy_no)
+      VALUES (trim(v_item #>> '{book,title}'), coalesce(v_item #>> '{book,title_key}', ''), v_item #>> '{book,author}',
+              v_item #>> '{book,publisher}', v_item #>> '{book,category}', v_item #>> '{book,language}',
+              v_item #>> '{book,isbn}', v_item #>> '{book,edition}', v_item #>> '{book,legacy_no}')
+      RETURNING * INTO b;
+      v_ids := CASE WHEN v_count > 0 THEN library_insert_copies(b, v_count, v_price) ELSE '{}'::uuid[] END;
+      v_out := v_out || jsonb_build_object('book_id', b.id, 'copy_ids', to_jsonb(v_ids), 'created', true);
+      v_created := v_created + 1;
+    END IF;
+    v_copies := v_copies + coalesce(array_length(v_ids, 1), 0);
+  END LOOP;
+
+  v_ev := library_log(p_actor, 'import', NULL, NULL, NULL, NULL, jsonb_build_object('items', v_out));
+  RETURN library_finish_request(p_request_id, jsonb_build_object(
+    'event_id', v_ev, 'created', v_created, 'copies', v_copies, 'items', jsonb_array_length(p_items)));
+END $$;
+
 -- ---------- RPC: catalog upkeep (K9) ----------
 
 -- Take a copy off the shelf (worn out, weeded) or put it back. Not while on loan.
@@ -1022,6 +1074,39 @@ END $$;
 
 -- ---------- RPC: undo (D6) ----------
 
+-- Reverse of adding copies (and of creating their title when p_remove_book):
+-- refused once a copy was lent, printed or has any history, or when the title
+-- holds copies that were not part of the action.
+CREATE OR REPLACE FUNCTION public.library_remove_copies(p_book_id uuid, p_copy_ids uuid[], p_remove_book boolean)
+RETURNS void LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+  -- Lock order book -> copies; nothing else takes the book lock while holding a copy.
+  PERFORM 1 FROM library_books WHERE id = p_book_id FOR UPDATE;
+  IF NOT FOUND THEN PERFORM library_fail('state_changed'); END IF;
+  PERFORM 1 FROM library_copies WHERE book_id = p_book_id ORDER BY id FOR UPDATE;
+  IF EXISTS (SELECT 1 FROM library_loans WHERE copy_id = ANY (p_copy_ids)) THEN
+    PERFORM library_fail('copy_has_loans');
+  END IF;
+  -- A printed sticker is already on a book, and any later event (lost,
+  -- found, ...) is history: deleting the copy would orphan either.
+  IF EXISTS (SELECT 1 FROM library_copies WHERE id = ANY (p_copy_ids)
+               AND (sticker_printed_at IS NOT NULL OR status <> 'available'))
+     OR EXISTS (SELECT 1 FROM library_events x WHERE x.copy_id = ANY (p_copy_ids)) THEN
+    PERFORM library_fail('state_changed');
+  END IF;
+  IF p_remove_book AND EXISTS (SELECT 1 FROM library_copies WHERE book_id = p_book_id AND NOT (id = ANY (p_copy_ids))) THEN
+    PERFORM library_fail('state_changed');
+  END IF;
+  -- D3: next_copy_no is not rolled back, so the deleted numbers are never reused.
+  DELETE FROM library_copies WHERE id = ANY (p_copy_ids) AND sticker_printed_at IS NULL AND status = 'available';
+  IF EXISTS (SELECT 1 FROM library_copies WHERE id = ANY (p_copy_ids)) THEN
+    PERFORM library_fail('state_changed');
+  END IF;
+  IF p_remove_book THEN
+    DELETE FROM library_books WHERE id = p_book_id;
+  END IF;
+END $$;
+
 -- Cancels fines written by the undone action; refuses if any carries money.
 CREATE OR REPLACE FUNCTION public.library_cancel_fines(p_ids uuid[], p_reason text)
 RETURNS void LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
@@ -1046,7 +1131,7 @@ CREATE OR REPLACE FUNCTION public.library_undo(p_event_id uuid, p_actor uuid, p_
 RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
   v_prev jsonb; e library_events%ROWTYPE; l library_loans%ROWTYPE; c library_copies%ROWTYPE;
-  d jsonb; v_ev uuid; v_newer boolean;
+  d jsonb; v_ev uuid; v_newer boolean; v_item jsonb;
 BEGIN
   v_prev := library_begin_request(p_request_id, p_actor, 'undo');
   IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
@@ -1203,34 +1288,14 @@ BEGIN
       INSERT INTO library_copies SELECT * FROM jsonb_populate_recordset(NULL::library_copies, d -> 'copies');
 
     WHEN 'add_copies', 'create_book' THEN
-      -- Lock order book -> copies; nothing else takes the book lock while holding a copy.
-      PERFORM 1 FROM library_books WHERE id = library_uuid(d, 'book_id') FOR UPDATE;
-      IF NOT FOUND THEN PERFORM library_fail('state_changed'); END IF;
-      PERFORM 1 FROM library_copies WHERE book_id = library_uuid(d, 'book_id') ORDER BY id FOR UPDATE;
-      IF EXISTS (SELECT 1 FROM library_loans WHERE copy_id = ANY (library_uuids(d, 'copy_ids'))) THEN
-        PERFORM library_fail('copy_has_loans');
-      END IF;
-      -- A printed sticker is already on a book, and any later event (lost,
-      -- found, ...) is history: deleting the copy would orphan either.
-      IF EXISTS (SELECT 1 FROM library_copies WHERE id = ANY (library_uuids(d, 'copy_ids'))
-                   AND (sticker_printed_at IS NOT NULL OR status <> 'available'))
-         OR EXISTS (SELECT 1 FROM library_events x WHERE x.copy_id = ANY (library_uuids(d, 'copy_ids'))) THEN
-        PERFORM library_fail('state_changed');
-      END IF;
-      -- Removing a title needs it to hold only the copies created with it.
-      IF e.kind = 'create_book' AND EXISTS (SELECT 1 FROM library_copies WHERE book_id = library_uuid(d, 'book_id')
-                                              AND NOT (id = ANY (library_uuids(d, 'copy_ids')))) THEN
-        PERFORM library_fail('state_changed');
-      END IF;
-      -- D3: next_copy_no is not rolled back, so the deleted numbers are never reused.
-      DELETE FROM library_copies WHERE id = ANY (library_uuids(d, 'copy_ids'))
-        AND sticker_printed_at IS NULL AND status = 'available';
-      IF (SELECT count(*) FROM library_copies WHERE id = ANY (library_uuids(d, 'copy_ids'))) > 0 THEN
-        PERFORM library_fail('state_changed');
-      END IF;
-      IF e.kind = 'create_book' THEN
-        DELETE FROM library_books WHERE id = library_uuid(d, 'book_id');
-      END IF;
+      PERFORM library_remove_copies(library_uuid(d, 'book_id'), library_uuids(d, 'copy_ids'), e.kind = 'create_book');
+
+    WHEN 'import' THEN
+      -- Books in id order, the same order everything else locks them in.
+      FOR v_item IN SELECT x FROM jsonb_array_elements(d -> 'items') x ORDER BY x ->> 'book_id' LOOP
+        PERFORM library_remove_copies(library_uuid(v_item, 'book_id'), library_uuids(v_item, 'copy_ids'),
+                                      coalesce((v_item ->> 'created')::boolean, false));
+      END LOOP;
 
     ELSE
       PERFORM library_fail('not_undoable', e.kind);

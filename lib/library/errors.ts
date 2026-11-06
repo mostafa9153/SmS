@@ -12,6 +12,7 @@ export const LIBRARY_ERRORS = {
   request_mismatch: [409, "এই request আগে অন্য কাজে ব্যবহার হয়েছে। পাতাটা reload করুন।"],
   // catalog
   book_not_found: [404, "বইটা পাওয়া যায়নি।"],
+  nothing_to_import: [409, "যোগ করার মতো কিছু নেই।"],
   title_required: [400, "বইয়ের নাম লিখুন।"],
   book_withdrawn: [409, "বইটা withdrawn, নতুন কপি যোগ করা যাবে না।"],
   invalid_count: [400, "কপির সংখ্যা ১ থেকে ৫০০-র মধ্যে দিন।"],

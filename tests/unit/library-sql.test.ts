@@ -402,6 +402,40 @@ describe("library migration: review regressions", () => {
     expect(await fails("library_delete_book", [other.book_id, actor, uid()])).toContain("LIB:copy_has_history");
   });
 
+  it("imports new titles and extra copies in one step, and undo removes exactly that", async () => {
+    const existing = await rpc("library_create_book", [JSON.stringify({ title: "অপরাজিত" }), 1, null, actor, uid()]);
+    const items = JSON.stringify([
+      { book: { title: "দৃষ্টিপ্রদীপ", title_key: "দৃষ্টিপ্রদীপ", author: "বিভূতিভূষণ" }, copies: 2, price: 90 },
+      { book_id: existing.book_id, copies: 3, price: null },
+      { book: { title: "শুধু নাম" }, copies: 0, price: null },
+    ]);
+    const req = uid();
+    const imp = await rpc("library_import_books", [items, actor, req]);
+    expect(imp).toMatchObject({ created: 2, copies: 5 });
+    expect((await rpc("library_import_books", [items, actor, req])).replayed).toBe(true);
+    const codes = (await q(`select code from library_copies where book_id = $1 order by copy_no`, [existing.book_id])).map((r) => r.code);
+    expect(codes).toHaveLength(4);
+    await rpc("library_undo", [imp.event_id, actor, uid()]);
+    expect(Number((await one(`select count(*) n from library_copies where book_id = $1`, [existing.book_id])).n)).toBe(1);
+    expect(await one(`select id from library_books where title = 'দৃষ্টিপ্রদীপ'`)).toBeUndefined();
+  });
+
+  it("rolls the whole import back when one entry is refused", async () => {
+    const gone = await rpc("library_create_book", [JSON.stringify({ title: "পুরোনো" }), 0, null, actor, uid()]);
+    await db.query(`update library_books set status = 'withdrawn' where id = $1`, [gone.book_id]);
+    const items = JSON.stringify([{ book: { title: "নতুন বই এক" }, copies: 1, price: null }, { book_id: gone.book_id, copies: 1, price: null }]);
+    expect(await fails("library_import_books", [items, actor, uid()])).toContain("LIB:book_withdrawn");
+    expect(await one(`select id from library_books where title = 'নতুন বই এক'`)).toBeUndefined();
+  });
+
+  it("will not undo an import once one of its copies was lent", async () => {
+    const imp = await rpc("library_import_books", [JSON.stringify([{ book: { title: "আলোর পথে" }, copies: 1, price: null }]), actor, uid()]);
+    const c = await one(`select c.id from library_copies c join library_books b on b.id = c.book_id where b.title = 'আলোর পথে'`);
+    const p = await one(`insert into students(name) values('I') returning id`);
+    await issue(c.id, p.id, null);
+    expect(await fails("library_undo", [imp.event_id, actor, uid()])).toContain("LIB:copy_has_loans");
+  });
+
   it("blocks TRUNCATE of the ledger, even for service_role", async () => {
     expect(await sqlFails(`truncate library_fine_payments cascade`)).toContain("LIB:append_only");
     await db.exec(`set role service_role`);

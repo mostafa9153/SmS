@@ -14,9 +14,11 @@ import {
   loanBorrower,
   overdueChargedByLoan,
   parseBorrowerKey,
+  planImport,
   type BookRow,
   type LoanRow,
 } from "./db-library";
+import type { ImportEntry } from "./import";
 import { damageLimit, dueDate, lostCharge, renewCheck, renewQuote, waiveAmount } from "./rules";
 import { loanRulesFor } from "./settings";
 import type { BorrowerKey } from "./types";
@@ -536,5 +538,30 @@ export function setCopyWithdrawn(input: { copyId: string; withdrawn: boolean; re
     plan: async () => ({ p_copy_id: input.copyId, p_withdrawn: input.withdrawn, p_reason: input.reason?.trim() || null }),
     label: () => copyLabel(input.copyId, input.withdrawn ? "withdrawn" : "আবার shelf-এ"),
     data: (r) => ({ copyId: String(r.copy_id) }),
+  });
+}
+
+/** K2 commit: the plan is rebuilt here (the catalog may have changed since the preview), then one transaction. */
+export async function importBooks(input: { entries: ImportEntry[]; requestId: string; actor: Actor }) {
+  let skipped = 0;
+  return run({
+    kind: "import",
+    fn: "library_import_books",
+    requestId: input.requestId,
+    actor: input.actor,
+    plan: async () => {
+      const plan = await planImport(input.entries);
+      const items = plan.flatMap((p): Record<string, unknown>[] => {
+        if (p.kind === "skip") return [];
+        if (p.kind === "add") return [{ book_id: p.bookId, copies: p.entry.copies, price: p.entry.price }];
+        const book = cleanBookInput(p.entry.book);
+        return [{ book: { ...book, title_key: titleKey(book.title) }, copies: p.entry.copies, price: p.entry.price }];
+      });
+      skipped = plan.length - items.length;
+      if (!items.length) throw new LibraryError("nothing_to_import");
+      return { p_items: items };
+    },
+    label: async (r) => `Excel import: ${r.created}টি নতুন বই, ${r.copies}টি কপি`,
+    data: (r) => ({ created: num(r.created), copies: num(r.copies), skipped }),
   });
 }

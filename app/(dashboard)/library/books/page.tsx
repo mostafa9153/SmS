@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, BookOpen, BookPlus, Library, Printer, Tags, Users } from "lucide-react";
+import { AlertTriangle, BookOpen, BookPlus, FileSpreadsheet, Library, Printer, Tags, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -10,11 +10,13 @@ import { Spinner } from "@/components/ui/spinner";
 import { StatCard } from "@/components/ui/stat-card";
 import { AddBookDialog } from "@/components/library/catalog/add-book-dialog";
 import { BookTable } from "@/components/library/catalog/book-table";
+import { ImportBooksDialog } from "@/components/library/catalog/import-books-dialog";
 import { useBooks, useCatalogStats } from "@/lib/library/use-catalog";
 
 export default function LibraryCatalogPage() {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const books = useBooks(q.trim());
   const stats = useCatalogStats().data;
   const list = books.data?.pages.flat() ?? [];
@@ -25,9 +27,14 @@ export default function LibraryCatalogPage() {
         title="Library Catalog"
         icon={Library}
         actions={
-          <Button onClick={() => setAdding(true)}>
-            <BookPlus /> নতুন বই
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => setImporting(true)}>
+              <FileSpreadsheet /> Excel import
+            </Button>
+            <Button onClick={() => setAdding(true)}>
+              <BookPlus /> নতুন বই
+            </Button>
+          </>
         }
       />
 
@@ -78,6 +85,7 @@ export default function LibraryCatalogPage() {
       )}
 
       <AddBookDialog open={adding} onOpenChange={setAdding} />
+      <ImportBooksDialog open={importing} onOpenChange={setImporting} />
     </div>
   );
 }
