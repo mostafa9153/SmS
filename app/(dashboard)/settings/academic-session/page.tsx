@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { SettingsPageHeader } from "@/components/settings/settings-page-header";
+import { LibraryClassWarning } from "@/components/library/tc/library-dues-notice";
 import AcademicSessionClient from "@/app/(dashboard)/academic-session/academic-session-client";
 
 export const metadata = {
@@ -24,6 +25,7 @@ export default function AcademicSessionSettingsPage() {
           Promotion Desk →
         </Link>
       </SettingsPageHeader>
+      <LibraryClassWarning />
       <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Academic Session...</div>}>
         <AcademicSessionClient />
       </Suspense>

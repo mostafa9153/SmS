@@ -7,6 +7,9 @@ import { todayIST } from "@/lib/utils/date";
 import { mustWrite } from "@/lib/supabase/write";
 import { notifyAdminsOfError } from "@/lib/notifications/notify";
 import { getAcademicYear } from "@/lib/academic/current-year";
+import { getLibrarySettings } from "@/lib/library/db-library";
+import { libraryDuesForStudents, recordTcOverride } from "@/lib/library/db-library-tc";
+import { cleanOverrideReason, tcGate } from "@/lib/library/tc";
 
 const PENDING_STATUSES = [
   "Promoted But Not Admitted",
@@ -138,6 +141,28 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "studentIds array is required for TC Out" }, { status: 400 });
       }
 
+      // Library check (plan T12): books out or money owed block TC unless an Admin overrides.
+      const settings = await getLibrarySettings();
+      const dues = settings.tcMode === "off" ? [] : await libraryDuesForStudents(studentIds, settings);
+      const libGate = tcGate({ mode: settings.tcMode, dues, role: auth.role, overrideReason: body.libraryOverrideReason });
+      if (libGate.kind === "blocked") {
+        return NextResponse.json(
+          { success: false, error: "Library books or fines outstanding", code: "library_dues", libraryDues: libGate.dues },
+          { status: 409 },
+        );
+      }
+      if (libGate.kind === "forbidden") {
+        return NextResponse.json({ success: false, error: "Only Admin can override library dues", libraryDues: libGate.dues }, { status: 403 });
+      }
+      if (libGate.kind === "bad_reason") {
+        return NextResponse.json({ success: false, error: "Override reason must be 5 to 300 characters", libraryDues: libGate.dues }, { status: 400 });
+      }
+
+      // Logged before the TC so an override never goes unrecorded (append-only, S1).
+      if (libGate.override) {
+        await recordTcOverride(auth.user!.id, cleanOverrideReason(body.libraryOverrideReason)!, libGate.dues);
+      }
+
       const issueDate = tcDate || todayStr;
       const departureReason = tcReason || "Transfer Certificate Issued";
       const before = await snapshot(supabase, studentIds, currentYear);
@@ -189,6 +214,7 @@ export async function POST(req: Request) {
         message: `Successfully issued Transfer Certificate for ${updatedStudents?.length || 0} student(s). Moved to Old Register.`,
         students: updatedStudents,
         undoId,
+        libraryDues: libGate.dues,
       });
     }
 

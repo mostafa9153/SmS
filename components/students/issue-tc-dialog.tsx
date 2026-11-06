@@ -13,8 +13,11 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { issueTransferCertificate } from "@/lib/data/students";
-import { useQueryClient } from "@tanstack/react-query";
+import { getCurrentUserRole, issueTransferCertificate } from "@/lib/data/students";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "@/lib/api/client";
+import type { StudentDues } from "@/lib/library/tc";
+import { LibraryDuesNotice } from "@/components/library/tc/library-dues-notice";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { FileText, Printer, AlertTriangle } from "lucide-react";
@@ -51,12 +54,19 @@ export function IssueTcDialog({
   const [tcReason, setTcReason] = useState<string>("Transfer / Parent Relocation");
   const [tcNo, setTcNo] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dues, setDues] = useState<StudentDues[]>([]);
+  const [overrideReason, setOverrideReason] = useState("");
+  const { data: userAuth } = useQuery({ queryKey: ["current-user-role"], queryFn: getCurrentUserRole, staleTime: 60000 });
+  const isAdmin = userAuth?.role === "Admin";
+  const blocked = dues.length > 0;
 
   React.useEffect(() => {
     if (student) {
       setTcDate(todayStr);
       setTcReason("Transfer / Parent Relocation");
       setTcNo("");
+      setDues([]);
+      setOverrideReason("");
     }
   }, [student, todayStr]);
 
@@ -70,7 +80,9 @@ export function IssueTcDialog({
         tcDate,
         tcReason,
         tcNo: tcNo.trim() || undefined,
+        libraryOverrideReason: blocked ? overrideReason.trim() : undefined,
       });
+      if (res.libraryDues?.length) toast.warning(`Library dues: ${res.libraryDues.map((d) => d.name).join(", ")}`);
 
       const refresh = () => {
         queryClient.invalidateQueries({ queryKey: ["students"] });
@@ -88,6 +100,11 @@ export function IssueTcDialog({
         router.push(`/generate/transfer-certificate?studentId=${student.id}`);
       }
     } catch (err: any) {
+      const payload = err instanceof ApiError ? (err.payload as { code?: string; libraryDues?: StudentDues[] } | undefined) : undefined;
+      if (err instanceof ApiError && err.status === 409 && payload?.code === "library_dues") {
+        setDues(payload.libraryDues ?? []);
+        return;
+      }
       toast.error(err.message || "Failed to issue Transfer Certificate");
     } finally {
       setIsSubmitting(false);
@@ -147,6 +164,18 @@ export function IssueTcDialog({
             </div>
           </div>
 
+          {blocked && (
+            <div className="space-y-2">
+              <LibraryDuesNotice dues={dues} tone="block" />
+              {isAdmin && (
+                <div>
+                  <Label className="text-[11px] font-bold text-muted-foreground mb-1 block">Override reason (Admin)</Label>
+                  <Input value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} maxLength={300} className="h-9 text-xs" />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Departure Reason */}
           <div>
             <Label className="text-[11px] font-bold text-muted-foreground mb-1 block">Reason for Departure</Label>
@@ -175,7 +204,7 @@ export function IssueTcDialog({
             variant="outline"
             size="sm"
             onClick={() => handleIssue(true)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || (blocked && (!isAdmin || overrideReason.trim().length < 5))}
             className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
           >
             {isSubmitting ? <Spinner className="h-3.5 w-3.5" /> : <Printer className="h-3.5 w-3.5" />}
@@ -186,7 +215,7 @@ export function IssueTcDialog({
             type="button"
             size="sm"
             onClick={() => handleIssue(false)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || (blocked && (!isAdmin || overrideReason.trim().length < 5))}
             className="text-xs h-8 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
           >
             {isSubmitting ? <Spinner className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}

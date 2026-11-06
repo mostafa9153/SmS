@@ -12,6 +12,7 @@ import { RosterTable } from "@/components/students/promotion/roster-table";
 import { ExecuteConfirmDialog } from "@/components/students/promotion/execute-confirm-dialog";
 import { RollbackDialog } from "@/components/students/promotion/rollback-dialog";
 import { usePromotionDesk } from "@/components/students/promotion/use-promotion-desk";
+import { LibraryClassWarning } from "@/components/library/tc/library-dues-notice";
 
 function PromotionPageContent() {
   const desk = usePromotionDesk();
@@ -29,6 +30,8 @@ function PromotionPageContent() {
 
       {/* Summary Metrics Bar */}
       <SummaryMetrics desk={desk} />
+
+      {desk.selectedClass && <LibraryClassWarning className={desk.selectedClass} />}
 
       {/* Floating / Action Execution Bar */}
       <ActionBar desk={desk} />

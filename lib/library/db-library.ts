@@ -17,7 +17,7 @@ import type { BorrowerKey, BorrowerType, LoanRules } from "./types";
 const db = () => createAdminClient();
 
 /** Student statuses that may not borrow (they keep returning and paying). */
-const INACTIVE_STUDENT = ["Passed Out", "Drop Out", "TC Out"];
+export const INACTIVE_STUDENT = ["Passed Out", "Drop Out", "TC Out"];
 
 const STUDENT_COLUMNS = "id, name, school_id, pen, photo_url, present_class, present_section, present_roll, current_status";
 const STAFF_COLUMNS = "id, full_name, unique_id, designation, status";
