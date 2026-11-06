@@ -19,6 +19,23 @@ interface QRScannerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onScanSuccess: (certificateNo: string) => void;
+  /** "code": hand the raw scanned text to the caller (library desk) instead of reading a certificate number. */
+  variant?: "certificate" | "code";
+}
+
+interface DetectorLike {
+  detect(source: CanvasImageSource): Promise<{ rawValue: string }[]>;
+}
+
+/** Native BarcodeDetector (QR + Code128) when the browser has it; jsQR is the fallback. */
+function createDetector(): DetectorLike | null {
+  const Ctor = (globalThis as { BarcodeDetector?: new (o: { formats: string[] }) => DetectorLike }).BarcodeDetector;
+  if (!Ctor) return null;
+  try {
+    return new Ctor({ formats: ["qr_code", "code_128"] });
+  } catch {
+    return null;
+  }
 }
 
 function extractCertificateNumber(rawCode: string): string {
@@ -47,7 +64,11 @@ export function QRScannerModal({
   open,
   onOpenChange,
   onScanSuccess,
+  variant = "certificate",
 }: QRScannerModalProps) {
+  const isCode = variant === "code";
+  const detectorRef = useRef<DetectorLike | null | undefined>(undefined);
+  const detectingRef = useRef(false);
   const [activeTab, setActiveTab] = useState<"camera" | "upload">("camera");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -79,7 +100,7 @@ export function QRScannerModal({
   const handleDetected = useCallback(
     (rawData: string) => {
       stopCamera();
-      const certNo = extractCertificateNumber(rawData);
+      const certNo = isCode ? rawData.trim() : extractCertificateNumber(rawData);
       setScannedResult(certNo);
 
       // Play soft sound or haptic feedback if available
@@ -91,9 +112,9 @@ export function QRScannerModal({
       setTimeout(() => {
         onScanSuccess(certNo);
         onOpenChange(false);
-      }, 700);
+      }, isCode ? 250 : 700);
     },
-    [stopCamera, onScanSuccess, onOpenChange]
+    [stopCamera, onScanSuccess, onOpenChange, isCode]
   );
 
   const scanVideoFrameRef = useRef<() => void>(() => {});
@@ -103,6 +124,35 @@ export function QRScannerModal({
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
+
+    if (detectorRef.current === undefined) detectorRef.current = createDetector();
+    const detector = detectorRef.current;
+    if (detector) {
+      if (video.readyState === video.HAVE_ENOUGH_DATA && !detectingRef.current) {
+        detectingRef.current = true;
+        detector
+          .detect(video)
+          .then((codes) => {
+            // The camera may have been stopped while detect() was running.
+            if (!streamRef.current) return true;
+            const hit = codes.find((c) => c.rawValue?.trim());
+            if (hit) handleDetected(hit.rawValue);
+            return Boolean(hit);
+          })
+          .catch(() => {
+            // A detector that cannot decode: use jsQR from the next frame on.
+            detectorRef.current = null;
+            return false;
+          })
+          .then((done) => {
+            detectingRef.current = false;
+            if (!done && streamRef.current) animFrameId.current = requestAnimationFrame(() => scanVideoFrameRef.current());
+          });
+      } else {
+        animFrameId.current = requestAnimationFrame(() => scanVideoFrameRef.current());
+      }
+      return;
+    }
 
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
       const width = video.videoWidth;
@@ -232,10 +282,10 @@ export function QRScannerModal({
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-foreground">
-                Certificate QR Scanner
+                {isCode ? "Scan code" : "Certificate QR Scanner"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Point camera at certificate QR code or upload photo to verify authenticity
+                {isCode ? "Book sticker or ID card" : "Point camera at certificate QR code or upload photo to verify authenticity"}
               </DialogDescription>
             </div>
           </div>

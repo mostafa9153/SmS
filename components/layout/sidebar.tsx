@@ -104,7 +104,7 @@ const navItems: NavItem[] = [
   },
   {
     label: "Library",
-    href: "/library/books",
+    href: "/library",
     icon: <Library className="h-4 w-4" />,
     iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
   },
