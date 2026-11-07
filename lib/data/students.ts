@@ -394,12 +394,14 @@ interface StatusActionPayload {
   tcReason?: string;
   tcNo?: string;
   reason?: string;
+  libraryOverrideReason?: string;
 }
 
 interface StatusActionResult {
   count: number;
   message: string;
   undoId?: string | null;
+  libraryDues?: import("@/lib/library/tc").StudentDues[];
 }
 
 async function executeStudentStatusAction(payload: StatusActionPayload) {
@@ -408,7 +410,7 @@ async function executeStudentStatusAction(payload: StatusActionPayload) {
 
 export async function issueTransferCertificate(
   studentId: string,
-  tcData?: { tcDate?: string; tcReason?: string; tcNo?: string }
+  tcData?: { tcDate?: string; tcReason?: string; tcNo?: string; libraryOverrideReason?: string }
 ) {
   return executeStudentStatusAction({
     action: "tc_out",

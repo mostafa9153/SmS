@@ -42,6 +42,10 @@ export interface TeacherPermissions {
   // === 5. 📊 Reports & Analytics ===
   can_view_reports: boolean;                    // View Reports & Analytics (Default: false)
 
+  // === 6. Library ===
+  can_manage_library: boolean;                  // Library desk, catalog, fine collection (Default: false)
+  can_waive_library_fines: boolean;             // Waive library fines (Default: false)
+
   // Scope: Specific classes allowed (empty = all assigned classes)
   allowed_classes: string[];
 }
@@ -84,6 +88,10 @@ export const DEFAULT_TEACHER_PERMISSIONS: TeacherPermissions = {
 
   // 5. Reports
   can_view_reports: false,
+
+  // 6. Library
+  can_manage_library: false,
+  can_waive_library_fines: false,
 
   allowed_classes: [],
 };

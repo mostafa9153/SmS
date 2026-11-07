@@ -109,6 +109,8 @@ export function AccountsTab({ tm }: { tm: TeacherManagementState }) {
                             can_manage_ems: existingPerms.can_manage_ems ?? false,
                             can_manage_sports: existingPerms.can_manage_sports ?? false,
                             can_view_reports: existingPerms.can_view_reports ?? false,
+                            can_manage_library: existingPerms.can_manage_library ?? false,
+                            can_waive_library_fines: existingPerms.can_waive_library_fines ?? false,
                           });
                         }}
                         className="h-8 rounded-xl text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 cursor-pointer gap-1.5"

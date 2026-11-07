@@ -3,7 +3,7 @@
 // notification bell through the QueryClient caches (see lib/query-provider.tsx).
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number, readonly url: string) {
+  constructor(message: string, readonly status: number, readonly url: string, readonly payload?: unknown) {
     super(message);
     this.name = "ApiError";
   }
@@ -22,7 +22,7 @@ export async function apiFetch<T = unknown>(url: string, init?: RequestInit & { 
   const payload = await res.json().catch(() => null);
   if (!res.ok || payload?.success === false) {
     const message = payload?.error || payload?.message || `${res.status} ${res.statusText}`.trim();
-    throw new ApiError(message, res.status, url);
+    throw new ApiError(message, res.status, url, payload);
   }
   return (raw ? payload : payload?.data ?? payload) as T;
 }

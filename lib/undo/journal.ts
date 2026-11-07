@@ -1,14 +1,53 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AuthContext } from "@/lib/supabase/auth-helper";
 import { softWrite } from "@/lib/supabase/write";
+import { libraryError } from "@/lib/library/errors";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- rows are opaque table snapshots */
 
 export type RestoreStep =
   | { table: string; op: "upsert"; rows: Record<string, any>[] }
-  | { table: string; op: "delete"; column: string; values: (string | number)[] };
+  | { table: string; op: "delete"; column: string; values: (string | number)[] }
+  /**
+   * A transactional reverse done by a database function (e.g. library_undo),
+   * which checks the current state itself. With `actorArgs`, the replay adds
+   * `p_actor` (who undoes) and `p_request_id` (derived from this entry and
+   * that person, so a retried undo cannot run twice).
+   */
+  | { op: "rpc"; fn: string; args: Record<string, unknown>; actorArgs?: boolean };
+
+class UndoConflict extends Error {}
+
+/** A stable uuid for (entry, actor): a retry by the same person replays, another person gets their own request. */
+function undoRequestId(entryId: string, actorId: string | null): string {
+  const h = createHash("sha256").update(`${entryId}:${actorId ?? ""}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+const stepHasWork = (s: RestoreStep) => (s.op === "rpc" ? true : s.op === "upsert" ? s.rows.length > 0 : s.values.length > 0);
+
+/** Runs one restore step; a refusal from an rpc step's own checks becomes an UndoConflict. */
+async function runStep(supabase: SupabaseClient, step: RestoreStep, entryId: string, actorId: string | null) {
+  if (step.op === "rpc") {
+    if (!/^[a-z_][a-z0-9_]*$/.test(step.fn)) throw new Error(`Invalid undo function ${step.fn}`);
+    const args = step.actorArgs ? { ...step.args, p_actor: actorId, p_request_id: undoRequestId(entryId, actorId) } : step.args;
+    const { error } = await supabase.rpc(step.fn, args);
+    if (!error) return;
+    const known = libraryError(error.message);
+    // An earlier attempt committed but its answer was lost: the reverse is already done.
+    if (known?.code === "already_undone") return;
+    if (known) throw new UndoConflict(known.message);
+    throw new Error(`${step.fn}: ${error.message}`);
+  }
+  const { error } =
+    step.op === "upsert"
+      ? await supabase.from(step.table).upsert(step.rows)
+      : await supabase.from(step.table).delete().in(step.column, step.values);
+  if (error) throw new Error(`${step.table}: ${error.message}`);
+}
 
 interface UndoGuard {
   table: string;
@@ -45,7 +84,7 @@ export async function snapshotRows(supabase: SupabaseClient, table: string, colu
  * (the action itself has already succeeded and must not fail because of this).
  */
 export async function recordUndo(input: RecordUndoInput): Promise<string | null> {
-  const steps = input.steps.filter((s) => (s.op === "upsert" ? s.rows.length : s.values.length) > 0);
+  const steps = input.steps.filter(stepHasWork);
   if (!steps.length) return null;
   try {
     const { data, error } = await createAdminClient()
@@ -92,6 +131,10 @@ export async function performUndo(id: string, auth: AuthContext): Promise<UndoRe
     if (current && guard.updated_at && current.updated_at !== guard.updated_at) {
       return { ok: false, status: 409, error: "This record was changed again after your edit, so it can't be undone automatically." };
     }
+    // The record was deleted after the edit: restoring the old values would recreate it half-empty.
+    if (!current && guard.updated_at) {
+      return { ok: false, status: 409, error: "This record was deleted after your edit, so the edit can't be undone." };
+    }
   }
 
   // Claim the entry first so two clicks can't replay it twice.
@@ -105,16 +148,13 @@ export async function performUndo(id: string, auth: AuthContext): Promise<UndoRe
 
   try {
     for (const step of entry.restore_steps as RestoreStep[]) {
-      const { error: stepError } =
-        step.op === "upsert"
-          ? await supabase.from(step.table).upsert(step.rows)
-          : await supabase.from(step.table).delete().in(step.column, step.values);
-      if (stepError) throw new Error(`${step.table}: ${stepError.message}`);
+      await runStep(supabase, step, id, auth.user?.id ?? null);
     }
     return { ok: true, label: entry.label };
   } catch (err) {
     // Release the claim so the user can retry after the cause is fixed.
     await softWrite(supabase.from("undoable_actions").update({ undone_at: null, undone_by: null }).eq("id", id), "undoable_actions update");
+    if (err instanceof UndoConflict) return { ok: false, status: 409, error: err.message };
     console.error("[undo] replay failed:", err);
     return { ok: false, status: 500, error: err instanceof Error ? err.message : "Undo failed." };
   }

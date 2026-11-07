@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Users, UserPlus, Upload, ArrowUpDown, Settings, ChevronDown, School, X, Award, CalendarClock, LogOut, ArrowLeft, PanelLeftClose, ShieldAlert, Activity, Cloud, Link2, Sparkles, ClipboardCheck, MapPin, GraduationCap, User, Briefcase, Trophy } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, Upload, ArrowUpDown, Settings, ChevronDown, School, X, Award, CalendarClock, LogOut, ArrowLeft, PanelLeftClose, ShieldAlert, Activity, Cloud, Link2, Sparkles, ClipboardCheck, MapPin, GraduationCap, User, Briefcase, Trophy, Library } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -101,6 +101,12 @@ const navItems: NavItem[] = [
     href: "/sports",
     icon: <Trophy className="h-4 w-4" />,
     iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Library",
+    href: "/library",
+    icon: <Library className="h-4 w-4" />,
+    iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
   },
   {
     label: "EMS (Exam Manager)",

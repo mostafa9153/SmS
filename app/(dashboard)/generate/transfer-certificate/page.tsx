@@ -42,6 +42,7 @@ import { recordPrintBatch } from "@/lib/utils/print-history";
 import { cn } from "@/lib/utils";
 import { CLASS_LADDER, getNextClass as ladderNextClass } from "@/lib/academic/class-ladder";
 import { PageHeader } from "@/components/ui/page-header";
+import { LibraryDuesWarning } from "@/components/library/tc/library-dues-notice";
 
 const STANDARD_CLASSES: string[] = [...CLASS_LADDER];
 
@@ -409,6 +410,7 @@ function TransferCertificateGeneratorContent() {
                 selectedIds={bulkStudents.map((s) => s.id)}
                 onBulkSelectionChange={setBulkStudents}
               />
+              <LibraryDuesWarning studentIds={pickerMode === "bulk" ? bulkStudents.map((s) => s.id) : selectedStudent ? [selectedStudent.id] : []} />
 
               {pickerMode === "bulk" && (
                 <p className="text-[10px] text-muted-foreground bg-muted/40 rounded-lg p-2 leading-relaxed">
