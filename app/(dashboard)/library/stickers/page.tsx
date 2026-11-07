@@ -1,5 +1,6 @@
 "use client";
 
+import { DeskLink } from "@/components/library/nav/desk-link";
 import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Printer, Tags } from "lucide-react";
@@ -48,9 +49,12 @@ function StickersPage() {
           back="/library/books"
           badge={<span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{s.list.length} · {s.pages.length} pages</span>}
           actions={
+            <>
+            <DeskLink />
             <Button onClick={s.print} disabled={!s.grid || s.problems.length > 0 || (!s.test && s.list.length === 0)}>
               <Printer /> {s.test ? "Test print" : "Print"}
             </Button>
+            </>
           }
         />
 

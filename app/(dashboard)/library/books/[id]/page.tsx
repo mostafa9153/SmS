@@ -1,5 +1,6 @@
 "use client";
 
+import { DeskLink } from "@/components/library/nav/desk-link";
 import { use } from "react";
 import Link from "next/link";
 import { Archive, ArchiveRestore, BookX, CopyPlus, Library, Pencil, Tags, Trash2 } from "lucide-react";
@@ -53,6 +54,7 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
         }
         actions={
           <>
+            <DeskLink />
             {book.copies.length > 0 && (
               <Link href={`/library/stickers?book=${book.id}`} className={buttonVariants({ variant: "outline" })}>
                 <Tags /> Sticker

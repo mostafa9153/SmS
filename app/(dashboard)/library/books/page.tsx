@@ -1,5 +1,6 @@
 "use client";
 
+import { DeskLink } from "@/components/library/nav/desk-link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, BookOpen, BookPlus, FileSpreadsheet, Library, Printer, Tags, Users } from "lucide-react";
@@ -30,6 +31,7 @@ export default function LibraryCatalogPage() {
         icon={Library}
         actions={
           <>
+            <DeskLink />
             <Button variant="outline" onClick={() => setImporting(true)}>
               <FileSpreadsheet /> Excel import
             </Button>
