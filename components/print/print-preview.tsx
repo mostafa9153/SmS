@@ -14,6 +14,7 @@ export function PrintPreview({
   resetKey,
   fitMode = "contain",
   fill = false,
+  startAt = "fit",
   className,
 }: {
   children: ReactNode;
@@ -21,12 +22,15 @@ export function PrintPreview({
   fitMode?: "contain" | "width";
   /** Take the parent's full height (dialogs, studios) instead of the page-column heights. */
   fill?: boolean;
+  /** "actual" opens at 100% size; the default fits the page. */
+  startAt?: "fit" | "actual";
   className?: string;
 }) {
   return (
     <ZoomPanViewport
       resetKey={resetKey}
       fitMode={fitMode}
+      startAt={startAt}
       className={cn(
         fill ? "h-full" : "h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)]",
         "w-full print:hidden",

@@ -68,3 +68,12 @@ export function workingDaysBetween(start: string, end: string, holidays: readonl
   }
   return count;
 }
+
+/** Same day-of-month `months` earlier; a day past the end of that month is clamped to its last day. */
+export function subtractMonths(iso: string, months: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 1 - months, 1));
+  const lastDay = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const day = Math.min(d, lastDay);
+  return fromMs(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), day));
+}

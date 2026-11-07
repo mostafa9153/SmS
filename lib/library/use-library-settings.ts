@@ -56,7 +56,8 @@ export function useLibrarySettings() {
   const reset = () => setDraft(null);
 
   const save = async () => {
-    if (!value || !dirty || Object.keys(errors).length) return;
+    if (!value || !dirty) return;
+    if (Object.keys(errors).length) return toast.error("Fix the highlighted fields before saving");
     setSaving(true);
     try {
       const r = await libraryWrite<LibrarySettings>("/api/library/settings", "PUT", { changes: changedKeys(saved.data!, value) });

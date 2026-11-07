@@ -42,6 +42,8 @@ interface ZoomPanViewportProps {
   maxScale?: number;
   resetKey?: string | number;
   className?: string;
+  /** "actual" opens at 100% (real size) instead of fitting the page; "Fit to view" still fits. */
+  startAt?: "fit" | "actual";
 }
 
 export function ZoomPanViewport({
@@ -51,6 +53,7 @@ export function ZoomPanViewport({
   maxScale = 5,
   resetKey,
   className,
+  startAt = "fit",
 }: ZoomPanViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -108,6 +111,12 @@ export function ZoomPanViewport({
     [zoomAt]
   );
 
+  // Start position: fit the page, or 100% when startAt is "actual". Still refits until the user zooms.
+  const place = useCallback(() => {
+    fit();
+    if (startAt === "actual") commit(clampView({ scale: 1, x: PADDING, y: PADDING }, sizeRef.current));
+  }, [fit, startAt, commit]);
+
   // Measure container + content, refit while the user has not zoomed manually.
   useIsoLayoutEffect(() => {
     const container = containerRef.current;
@@ -122,7 +131,7 @@ export function ZoomPanViewport({
         h: content.offsetHeight,
       };
       if (fittedRef.current) {
-        fit();
+        place();
       } else {
         commit(clampView(viewRef.current, sizeRef.current));
       }
@@ -134,11 +143,11 @@ export function ZoomPanViewport({
     ro.observe(container);
     ro.observe(content);
     return () => ro.disconnect();
-  }, [fit, commit]);
+  }, [place, commit]);
 
   useEffect(() => {
-    fit();
-  }, [resetKey, fit]);
+    place();
+  }, [resetKey, place]);
 
   // Wheel: ctrl/cmd (and trackpad pinch) zooms at the cursor, plain wheel pans when content overflows.
   useEffect(() => {

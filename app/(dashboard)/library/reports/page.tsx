@@ -2,10 +2,11 @@
 
 import { BarChart3 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { FilterSelect } from "@/components/ui/filter-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { NeverLentList, RankedList, WaiverMonths } from "@/components/library/reports/report-sections";
-import { useReports } from "@/lib/library/use-reports";
+import { REPORT_RANGES, useReports } from "@/lib/library/use-reports";
 
 export default function LibraryReportsPage() {
   const r = useReports();
@@ -15,6 +16,12 @@ export default function LibraryReportsPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
       <PageHeader title="Library Reports" icon={BarChart3} back="/library" />
       <div className="flex flex-wrap items-center gap-2 text-sm">
+        <FilterSelect
+          value={r.range ?? ""}
+          placeholder="Custom"
+          options={REPORT_RANGES}
+          onChange={(v) => v && r.pickRange(v)}
+        />
         <Input type="date" value={r.from} onChange={(e) => r.setFrom(e.target.value)} className="w-40" aria-label="From" />
         <span className="text-muted-foreground">to</span>
         <Input type="date" value={r.to} onChange={(e) => r.setTo(e.target.value)} className="w-40" aria-label="To" />

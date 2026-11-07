@@ -93,7 +93,7 @@ function StickersPage() {
               />
               <PaperSettingsPanel settings={paper} papers={["A4"]} lockMargins />
             </div>
-            <PrintPreview resetKey={`${s.pages.length}-${s.test}`}>
+            <PrintPreview resetKey={`${s.pages.length}-${s.test}`} startAt="actual">
               <div className="flex flex-col gap-6">
                 {sheets.map((cells, i) => (
                   <div key={i} className="shadow-lg ring-1 ring-black/10">
