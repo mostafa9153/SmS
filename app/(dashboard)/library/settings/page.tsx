@@ -1,5 +1,6 @@
 "use client";
 
+import { DeskLink } from "@/components/library/nav/desk-link";
 import { RotateCcw, Save, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -21,7 +22,9 @@ export default function LibrarySettingsPage() {
         icon={Settings}
         back="/library"
         actions={
-          s.canEdit && (
+          <>
+            <DeskLink />
+          {s.canEdit && (
             <>
               <Button variant="outline" onClick={s.reset} disabled={!s.dirty || s.saving}>
                 <RotateCcw /> Discard
@@ -30,7 +33,8 @@ export default function LibrarySettingsPage() {
                 <Save /> Save
               </Button>
             </>
-          )
+          )}
+          </>
         }
       />
       {s.loading ? (

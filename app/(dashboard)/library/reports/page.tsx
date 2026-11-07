@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { BarChart3, ScanLine } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { DeskLink } from "@/components/library/nav/desk-link";
+import { BarChart3 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { FilterSelect } from "@/components/ui/filter-select";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,11 +19,7 @@ export default function LibraryReportsPage() {
         title="Library Reports"
         icon={BarChart3}
         back="/library"
-        actions={
-          <Link href="/library" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            <ScanLine /> Desk
-          </Link>
-        }
+        actions={<DeskLink />}
       />
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <FilterSelect

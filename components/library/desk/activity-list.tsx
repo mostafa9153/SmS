@@ -51,6 +51,7 @@ export function ActivityList({
               <p className={cn("break-words font-medium", a.undone && "line-through")}>
                 <span className="mr-1.5 text-xs font-semibold uppercase text-muted-foreground">{KIND_LABEL[a.kind]}</span>
                 {a.label}
+                {a.by && <span className="ml-1.5 text-xs font-normal text-muted-foreground">· {a.by}</span>}
               </p>
               {a.error && <p className="text-xs text-rose-600">{a.error}</p>}
             </div>

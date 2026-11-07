@@ -1,5 +1,6 @@
 "use client";
 
+import { DeskLink } from "@/components/library/nav/desk-link";
 import { Suspense } from "react";
 import { HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,8 @@ function FinesPage() {
         icon={HandCoins}
         back="/library"
         actions={
+          <>
+            <DeskLink />
           <div className="flex rounded-lg border p-0.5">
             {(["due", "day"] as const).map((t) => (
               <Button key={t} size="sm" variant={f.tab === t ? "default" : "ghost"} onClick={() => f.setTab(t)}>
@@ -38,6 +41,7 @@ function FinesPage() {
               </Button>
             ))}
           </div>
+          </>
         }
       />
 

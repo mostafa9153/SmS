@@ -1,5 +1,6 @@
 "use client";
 
+import { DeskLink } from "@/components/library/nav/desk-link";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -32,6 +33,7 @@ export default function LibraryOverduePage() {
         title="Overdue / Clearance"
         icon={AlertTriangle}
         back="/library"
+        actions={<DeskLink />}
         badge={<span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{books} books</span>}
       />
       <div className="flex flex-wrap items-center gap-2">

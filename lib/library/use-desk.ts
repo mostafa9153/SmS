@@ -22,6 +22,7 @@ interface ServerActivityRow {
   undoId: string | null;
   undone: boolean;
   loanId?: string;
+  by?: string;
 }
 
 export interface Activity {
@@ -34,6 +35,8 @@ export interface Activity {
   undone?: boolean;
   /** Set on a return row: offers [Renew instead] and [Damaged]. */
   loanId?: string;
+  /** Another user's action (the whole school shares one desk). */
+  by?: string;
   error?: string;
   retry?: () => void;
 }
@@ -80,23 +83,49 @@ export function useDesk() {
   const [choices, setChoices] = useState<DeskChoice[] | null>(null);
   const [activity, setActivity] = useState<Activity[]>([]);
 
-  // After a refresh the list is empty; load today's desk actions from the event log (newest first, below anything new).
+  // Today's desk actions of everyone come from the event log: loaded on open, then kept live every few seconds
+  // and whenever the tab is shown again. The log wins; only failed scans waiting for a retry, and actions
+  // made a moment ago that the log has not returned yet, are kept from the local list.
   useEffect(() => {
     let cancelled = false;
-    apiFetch<ServerActivityRow[]>("/api/library/desk/activity")
-      .then((rows) => {
+    let busy = false;
+    let failedOnce = false;
+    const refresh = async () => {
+      if (busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        const rows = await apiFetch<ServerActivityRow[]>("/api/library/desk/activity");
         if (cancelled) return;
+        failedOnce = false;
         setActivity((all) => {
-          const have = new Set(all.map((a) => a.id));
-          return [...all, ...rows.filter((r) => !have.has(r.id)).map((r) => ({ ...r, at: Date.parse(r.at), status: "ok" as const }))];
+          const logged = rows.map((r) => ({ ...r, at: Date.parse(r.at), status: "ok" as const }));
+          const now = Date.now();
+          const pending = all.filter(
+            (a) =>
+              a.status === "ok" &&
+              now - a.at < 20_000 &&
+              !logged.some((s) => (a.undoId && s.undoId === a.undoId) || (s.kind === a.kind && Math.abs(s.at - a.at) < 8_000)),
+          );
+          const ok = [...pending, ...logged].sort((x, y) => y.at - x.at);
+          return [...all.filter((a) => a.status === "failed"), ...ok].slice(0, 100);
         });
-      })
-      .catch((err: unknown) => {
-        // Do not hide a failed load: the list would look empty after every refresh.
-        if (!cancelled) toast.error(err instanceof Error ? `Could not load today's activity: ${err.message}` : "Could not load today's activity");
-      });
+      } catch (err) {
+        // Say so once: a silent failure would look like an empty list after every refresh.
+        if (!cancelled && !failedOnce) {
+          failedOnce = true;
+          toast.error(err instanceof Error ? `Could not load today's activity: ${err.message}` : "Could not load today's activity");
+        }
+      } finally {
+        busy = false;
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => void refresh(), 10_000);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
   const [selected, setSelected] = useState(0);
