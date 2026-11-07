@@ -3,6 +3,8 @@
 import type { KeyboardEvent } from "react";
 import { FormField, FormGrid } from "@/components/forms/form-layout";
 import { Input } from "@/components/ui/input";
+import { BOOK_CATEGORIES, BOOK_LANGUAGES } from "@/lib/library/book-options";
+import { LookupField } from "./lookup-field";
 
 export interface BookFormValues {
   title: string;
@@ -58,12 +60,22 @@ export function BookFields({
     <FormGrid>
       {FIELDS.map((f) => (
         <FormField key={f.key} label={f.label} full={f.full} error={f.key === "title" ? titleError : undefined}>
-          <Input
-            value={values[f.key]}
-            maxLength={300}
-            autoFocus={autoFocus && f.key === "title"}
-            onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
-          />
+          {f.key === "category" || f.key === "language" ? (
+            <LookupField
+              value={values[f.key]}
+              options={f.key === "category" ? BOOK_CATEGORIES : BOOK_LANGUAGES}
+              placeholder={f.key === "category" ? "Select category" : "Select language"}
+              customPlaceholder={f.key === "category" ? "Type category" : "Type language"}
+              onChange={(v) => onChange({ ...values, [f.key]: v })}
+            />
+          ) : (
+            <Input
+              value={values[f.key]}
+              maxLength={300}
+              autoFocus={autoFocus && f.key === "title"}
+              onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
+            />
+          )}
         </FormField>
       ))}
     </FormGrid>

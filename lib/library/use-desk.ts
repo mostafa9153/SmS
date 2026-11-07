@@ -13,6 +13,17 @@ import { libraryWrite, useRefreshLibrary } from "./use-catalog";
 import { usePanelTimer } from "./use-panel-timer";
 import type { DeskShortcut } from "./scanner-input";
 
+/** One of today's desk actions as the server returns it (see lib/library/desk-activity.ts). */
+interface ServerActivityRow {
+  id: string;
+  at: string;
+  kind: "issue" | "return" | "renew" | "found" | "damaged";
+  label: string;
+  undoId: string | null;
+  undone: boolean;
+  loanId?: string;
+}
+
 export interface Activity {
   id: string;
   at: number;
@@ -68,6 +79,26 @@ export function useDesk() {
   const [notice, setNotice] = useState<DeskNotice | null>(null);
   const [choices, setChoices] = useState<DeskChoice[] | null>(null);
   const [activity, setActivity] = useState<Activity[]>([]);
+
+  // After a refresh the list is empty; load today's desk actions from the event log (newest first, below anything new).
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<ServerActivityRow[]>("/api/library/desk/activity")
+      .then((rows) => {
+        if (cancelled) return;
+        setActivity((all) => {
+          const have = new Set(all.map((a) => a.id));
+          return [...all, ...rows.filter((r) => !have.has(r.id)).map((r) => ({ ...r, at: Date.parse(r.at), status: "ok" as const }))];
+        });
+      })
+      .catch((err: unknown) => {
+        // Do not hide a failed load: the list would look empty after every refresh.
+        if (!cancelled) toast.error(err instanceof Error ? `Could not load today's activity: ${err.message}` : "Could not load today's activity");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [selected, setSelected] = useState(0);
   const [flash, setFlash] = useState<DeskTone | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);

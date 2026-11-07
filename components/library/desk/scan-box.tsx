@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { Camera, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,13 @@ export function ScanBox({
   moveSelection: (delta: number) => void;
 }) {
   const [value, setValue] = useState("");
-  // The camera needs HTTPS; plain http only works on localhost.
-  const cameraOk = typeof window !== "undefined" && window.isSecureContext;
+  // The camera needs HTTPS; plain http only works on localhost. Server and first client render both see
+  // "not secure" so the markup matches; the real value is read after hydration.
+  const cameraOk = useSyncExternalStore(
+    () => () => undefined,
+    () => window.isSecureContext,
+    () => false,
+  );
 
   return (
     <>
