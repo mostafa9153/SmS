@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/api/guard";
+import { requireStaff } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { dbGetStudentResultHistory } from "@/lib/supabase/db-results";
 
@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const gate = await requireRole();
+    const gate = await requireStaff("can_view_student_profile", "can_enter_results", "can_generate_marksheets");
     if (!gate.ok) return gate.response;
     const { id } = await params;
     const supabase = await createClient();

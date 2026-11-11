@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { denyOutsideClasses, requireRole, requireStaff } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
+import { STUDENT_READ_PERMISSIONS } from "@/lib/permissions/registry";
 import { 
   dbGetStudentById, 
   dbUpdateStudent, 
@@ -38,7 +39,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const gate = await requireRole();
+    const gate = await requireStaff(...STUDENT_READ_PERMISSIONS);
     if (!gate.ok) return gate.response;
     const { id } = await params;
     const role = await getUserRole();

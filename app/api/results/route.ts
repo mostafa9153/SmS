@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { dbGetResultsByClass, dbSaveOrUpdateResult } from "@/lib/supabase/db-results";
 import type { Semester } from "@/lib/types";
-import { denyOutsideClasses, requireRole, requireStaff } from "@/lib/api/guard";
+import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
 import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
 import { getAcademicYear } from "@/lib/academic/current-year";
 import { recordResultsUndo, snapshotClassResults } from "@/lib/academic/results-undo";
 
 // GET /api/results?year=2026&class=V&section=A&exam=Annual%20Examination&semester=Sem%201
 export async function GET(req: Request) {
-  const gate = await requireRole();
+  const gate = await requireStaff("can_enter_results", "can_generate_marksheets", "can_generate_tabulation", "can_view_reports");
   if (!gate.ok) return gate.response;
 
   try {

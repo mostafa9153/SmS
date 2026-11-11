@@ -24,11 +24,9 @@ function applyAadhaarMasking(students: Student[], role: string): Student[] {
 // GET /api/students - List/Search students
 export async function GET(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    const role = auth.role;
-    if (role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const gate = await requireStaff(...STUDENT_READ_PERMISSIONS);
+    if (!gate.ok) return gate.response;
+    const role = gate.auth.role;
 
     const { searchParams } = new URL(req.url);
     const paginated = searchParams.get("paginated") !== "false";
@@ -75,6 +73,7 @@ export async function GET(req: Request) {
 
 import { studentCreateSchema } from "@/lib/validations/student-schema";
 import { requireStaff } from "@/lib/api/guard";
+import { STUDENT_READ_PERMISSIONS } from "@/lib/permissions/registry";
 import { softWrite } from "@/lib/supabase/write";
 
 // POST /api/students - Create a student

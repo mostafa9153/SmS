@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { usePathname } from "next/navigation";
 import { ShieldOff } from "lucide-react";
 import { useAccess } from "@/lib/hooks/use-access";
@@ -10,6 +12,13 @@ import { canAccessPath } from "@/lib/navigation/route-access";
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const access = useAccess();
+
+  // The proxy sends a Teacher here with ?denied=1 when a page is outside their permissions
+  useEffect(() => {
+    if (pathname !== "/teacher" || !new URLSearchParams(window.location.search).has("denied")) return;
+    toast.error("No permission for that page");
+    window.history.replaceState(null, "", "/teacher");
+  }, [pathname]);
 
   if (access.role === "Teacher" && !canAccessPath(pathname, access)) {
     return (

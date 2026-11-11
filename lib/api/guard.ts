@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUserRole, type AuthContext } from "@/lib/supabase/auth-helper";
-import { DEFAULT_TEACHER_PERMISSIONS, type TeacherPermissions } from "@/lib/types/teacher";
+import { normalizePermissions, type PermissionKey, type TeacherPermissions } from "@/lib/permissions/registry";
 
 type Role = Exclude<AuthContext["role"], "Guest">;
-type TeacherPermission = Exclude<keyof TeacherPermissions, "allowed_classes">;
+type TeacherPermission = PermissionKey;
 
 const SIGNED_IN: Role[] = ["Admin", "Staff", "Teacher"];
 
@@ -20,7 +20,7 @@ function deny(status: 401 | 403): GuardResult {
 
 /** Effective teacher permissions: stored flags over the defaults. */
 export function teacherPermissions(auth: AuthContext): TeacherPermissions {
-  return { ...DEFAULT_TEACHER_PERMISSIONS, ...(auth.permissions ?? {}) };
+  return normalizePermissions(auth.permissions);
 }
 
 /**

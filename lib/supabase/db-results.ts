@@ -1,4 +1,4 @@
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createDataClient as createServerClient } from "@/lib/supabase/data-client";
 import type { StudentResult, ResultEntryInput, ClassResultsSummary, Semester } from "@/lib/types";
 import { evaluateStudentPromotionEligibility } from "@/lib/utils/marksheet-calc";
 

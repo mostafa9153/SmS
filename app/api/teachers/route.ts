@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizePermissions } from "@/lib/permissions/registry";
 import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -190,7 +191,7 @@ export async function POST(req: Request) {
           staff_id: staffId,
           role: "Teacher",
           full_name: cleanName,
-          permissions: permissions || DEFAULT_TEACHER_PERMISSIONS,
+          permissions: normalizePermissions(permissions),
         },
         { onConflict: "user_id" }
       );
@@ -331,7 +332,7 @@ export async function PATCH(req: Request) {
     if (permissions && targetUserId) {
       const { error: permError } = await adminClient
         .from("user_roles")
-        .update({ permissions })
+        .update({ permissions: normalizePermissions(permissions) })
         .eq("user_id", targetUserId);
 
       if (permError) {
