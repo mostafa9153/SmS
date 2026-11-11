@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, DoorOpen, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+import { ChevronDown, DoorOpen, Plus, RotateCcw } from "lucide-react";
 import { CONDITION_LABEL } from "@/lib/assets/use-assets";
 import { PageHeader } from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
@@ -10,10 +12,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AddItemDialog } from "@/components/assets/add-item-dialog";
 import { COUNT_CONDITIONS, useRoomCount, type CountRow } from "./use-room-count";
 
 export function CountScreen({ roomId }: { roomId: string }) {
   const c = useRoomCount(roomId);
+  const [adding, setAdding] = useState(false);
   const roomHref = `/assets/rooms/${encodeURIComponent(roomId)}`;
 
   if (c.loading) return <Spinner label="Loading" className="py-16" />;
@@ -39,6 +43,9 @@ export function CountScreen({ roomId }: { roomId: string }) {
       {c.totalRows > 8 && <SearchInput value={c.search} onChange={c.setSearch} placeholder="Find item" size="sm" />}
 
       <ul className="rounded-2xl border border-border/80 bg-card divide-y divide-border/70 overflow-hidden">
+        {c.rows.length === 0 && c.search.trim() && (
+          <li className="p-3.5 text-sm text-muted-foreground">No item named &ldquo;{c.search.trim()}&rdquo;</li>
+        )}
         {c.rows.map((row, i) => (
           <li key={row.item.id}>
             {i === firstOther && firstOther > 0 && (
@@ -47,7 +54,27 @@ export function CountScreen({ roomId }: { roomId: string }) {
             <CountRowView row={row} c={c} />
           </li>
         ))}
+        <li>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="w-full min-h-14 px-3.5 flex items-center gap-2 text-sm font-medium text-primary hover:bg-primary/5 cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            {c.search.trim() && c.rows.length === 0 ? `Add "${c.search.trim()}"` : "New item"}
+          </button>
+        </li>
       </ul>
+
+      <AddItemDialog
+        open={adding}
+        onOpenChange={setAdding}
+        initialName={c.rows.length === 0 ? c.search.trim() : ""}
+        onAdded={(item) => {
+          c.setSearch("");
+          if (item.tracking === "serial") toast.info(`${item.name} has its own code per piece, so it is not counted here`);
+        }}
+      />
 
       <div className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 px-3 md:sticky md:bottom-4 md:px-0">
         <div className="mx-auto max-w-3xl rounded-2xl border bg-card/95 backdrop-blur shadow-lg p-2.5 flex items-center gap-2">
