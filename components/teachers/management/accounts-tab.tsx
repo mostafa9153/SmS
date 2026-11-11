@@ -4,6 +4,7 @@ import { CheckCircle2, Shield, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { normalizePermissions } from "@/lib/permissions/registry";
 import { PERMISSION_SECTIONS } from "@/components/teachers/management/permissions";
 import type { TeacherManagementState } from "./use-teacher-management";
 
@@ -79,39 +80,7 @@ export function AccountsTab({ tm }: { tm: TeacherManagementState }) {
                         onClick={() => {
                           setConfigureTeacher(t);
                           const existingPerms = t.permissions || {};
-                          setPendingPerms({
-                            can_generate_invoices: existingPerms.can_generate_invoices ?? true,
-                            can_generate_marksheets: existingPerms.can_generate_marksheets ?? true,
-                            can_generate_certificates: existingPerms.can_generate_certificates ?? false,
-                            can_handle_readmission: existingPerms.can_handle_readmission ?? true,
-                            can_generate_admit_cards: existingPerms.can_generate_admit_cards ?? true,
-                            allowed_classes: existingPerms.allowed_classes ?? [],
-                            can_view_students: existingPerms.can_view_students ?? true,
-                            can_view_student_profile: existingPerms.can_view_student_profile ?? true,
-                            can_edit_student_profile: existingPerms.can_edit_student_profile ?? false,
-                            can_add_student_manual: existingPerms.can_add_student_manual ?? false,
-                            can_bulk_upload_students: existingPerms.can_bulk_upload_students ?? false,
-                            can_view_old_students: existingPerms.can_view_old_students ?? false,
-                            can_handle_new_admission: existingPerms.can_handle_new_admission ?? false,
-                            can_handle_new_admission_online: existingPerms.can_handle_new_admission_online ?? false,
-                            can_handle_ai_scan_admission: existingPerms.can_handle_ai_scan_admission ?? false,
-                            can_view_admission_applications: existingPerms.can_view_admission_applications ?? false,
-                            can_view_admission_invoices: existingPerms.can_view_admission_invoices ?? false,
-                            can_generate_transfer_certificate: existingPerms.can_generate_transfer_certificate ?? false,
-                            can_generate_pass_certificate: existingPerms.can_generate_pass_certificate ?? false,
-                            can_generate_kanyashree: existingPerms.can_generate_kanyashree ?? false,
-                            can_generate_id_card: existingPerms.can_generate_id_card ?? false,
-                            can_print_admission_form: existingPerms.can_print_admission_form ?? false,
-                            can_generate_tabulation: existingPerms.can_generate_tabulation ?? false,
-                            can_view_certificate_tracker: existingPerms.can_view_certificate_tracker ?? false,
-                            can_enter_results: existingPerms.can_enter_results ?? false,
-                            can_view_seating_plan: existingPerms.can_view_seating_plan ?? false,
-                            can_manage_ems: existingPerms.can_manage_ems ?? false,
-                            can_manage_sports: existingPerms.can_manage_sports ?? false,
-                            can_view_reports: existingPerms.can_view_reports ?? false,
-                            can_manage_library: existingPerms.can_manage_library ?? false,
-                            can_waive_library_fines: existingPerms.can_waive_library_fines ?? false,
-                          });
+                          setPendingPerms(normalizePermissions(existingPerms));
                         }}
                         className="h-8 rounded-xl text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 cursor-pointer gap-1.5"
                       >

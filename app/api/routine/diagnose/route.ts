@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/api/guard";
 
 // Proxies the solver's fast counting checks (no solving). Same payload as /api/routine/generate.
 export async function POST(req: NextRequest) {
-  const gate = await requireRole();
+  const gate = await requireRole(["Admin", "Staff"]);
   if (!gate.ok) return gate.response;
 
   try {

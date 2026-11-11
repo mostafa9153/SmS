@@ -1,5 +1,7 @@
 "use client";
 
+import { useAccess } from "@/lib/hooks/use-access";
+import { canAccessPath } from "@/lib/navigation/route-access";
 import dynamic from "next/dynamic";
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
@@ -321,6 +323,12 @@ const GENERATOR_MODULES: GeneratorModule[] = [
 
 function GenerateHubPageContent() {
   const searchParams = useSearchParams();
+  const { role: accessRole, permissions: accessPerms } = useAccess();
+  // A Teacher sees only the generators their permissions cover
+  const modules = useMemo(
+    () => GENERATOR_MODULES.filter((m) => canAccessPath(m.href, { role: accessRole, permissions: accessPerms })),
+    [accessRole, accessPerms]
+  );
 
   const categoryParam = searchParams.get("category") as CategoryFilter;
   const initialCategory = categoryParam && VALID_GENERATE_CATEGORIES.includes(categoryParam) ? categoryParam : "all";
@@ -464,7 +472,7 @@ function GenerateHubPageContent() {
 
   // Filter modules
   const filteredModules = useMemo(() => {
-    return GENERATOR_MODULES.filter((mod) => {
+    return modules.filter((mod) => {
       const matchesCategory =
         selectedCategory === "all" || mod.category === selectedCategory;
 
@@ -695,7 +703,7 @@ function GenerateHubPageContent() {
                 : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            Certificates ({GENERATOR_MODULES.filter((m) => m.category === "certificates").length})
+            Certificates ({modules.filter((m) => m.category === "certificates").length})
           </button>
           <button
             type="button"
@@ -719,7 +727,7 @@ function GenerateHubPageContent() {
                 : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            Admissions ({GENERATOR_MODULES.filter((m) => m.category === "admissions").length})
+            Admissions ({modules.filter((m) => m.category === "admissions").length})
           </button>
           <button
             type="button"
@@ -731,7 +739,7 @@ function GenerateHubPageContent() {
                 : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            Reports ({GENERATOR_MODULES.filter((m) => m.category === "reports").length})
+            Reports ({modules.filter((m) => m.category === "reports").length})
           </button>
           <button
             type="button"
@@ -755,7 +763,7 @@ function GenerateHubPageContent() {
                 : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            Others ({GENERATOR_MODULES.filter((m) => m.category === "others").length})
+            Others ({modules.filter((m) => m.category === "others").length})
           </button>
         </div>
 

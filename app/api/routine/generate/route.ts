@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/api/guard";
 
 export async function POST(req: NextRequest) {
-  const gate = await requireRole();
+  const gate = await requireRole(["Admin", "Staff"]);
   if (!gate.ok) return gate.response;
 
   try {

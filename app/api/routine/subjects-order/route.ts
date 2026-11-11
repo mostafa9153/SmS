@@ -44,7 +44,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const gate = await requireRole();
+  const gate = await requireRole(["Admin", "Staff"]);
   if (!gate.ok) return gate.response;
 
   try {

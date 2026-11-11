@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
+import { createDataClient } from "@/lib/supabase/data-client";
 import type { StudentStatus } from "@/lib/types";
 import { normalizeSocialCategory } from "@/lib/utils/excel-parser";
 import { calculateExactAge, normalizeClassName } from "@/lib/utils";
@@ -22,6 +23,7 @@ export async function GET() {
     const gate = await requireRole();
     if (!gate.ok) return gate.response;
     const supabase = await createClient();
+    const db = await createDataClient();
 
     // Get current logged-in user to verify session
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
@@ -45,8 +47,7 @@ export async function GET() {
     let hasMore = true;
 
     while (hasMore) {
-      const { data: chunk, error: chunkErr } = await supabase
-        .from("students")
+      const { data: chunk, error: chunkErr } = await db.from("students")
         .select("current_status, present_class, gender, dob, social_category, minority_group, religion, is_cwsn, aadhaar")
         .range(page * pageSize, (page + 1) * pageSize - 1);
 

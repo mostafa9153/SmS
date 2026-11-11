@@ -1,4 +1,4 @@
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createDataClient as createServerClient } from "@/lib/supabase/data-client";
 import type { Student, StudentFilters, PaginatedStudents } from "@/lib/types";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
 import { pgContains } from "@/lib/supabase/filters";

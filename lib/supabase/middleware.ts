@@ -1,9 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canAccessPath } from "@/lib/navigation/route-access";
 
 // Short-lived in-memory cache for user role checks in middleware (60s TTL)
 interface MiddlewareRoleCache {
   role: string;
+  permissions: Record<string, unknown> | null;
   cachedAt: number;
 }
 const middlewareRoleCache = new Map<string, MiddlewareRoleCache>();
@@ -67,23 +69,24 @@ export async function updateSession(request: NextRequest) {
   const userId = claimsData?.claims?.sub;
   const user = userId ? { id: userId } : null;
 
-  // Helper to get cached user role
-  async function resolveUserRole(uid: string): Promise<string | null> {
+  // Role and permissions of the signed-in user, cached for 60s
+  async function resolveAccess(uid: string): Promise<{ role: string | null; permissions: Record<string, unknown> | null }> {
     const cached = middlewareRoleCache.get(uid);
     if (cached && Date.now() - cached.cachedAt < ROLE_CACHE_TTL) {
-      return cached.role;
+      return cached;
     }
     const { data: roleData } = await supabase
       .from("user_roles")
-      .select("role")
+      .select("role, permissions")
       .eq("user_id", uid)
       .maybeSingle();
 
     const role = roleData?.role || null;
+    const permissions = (roleData?.permissions as Record<string, unknown> | null) ?? null;
     if (role) {
-      middlewareRoleCache.set(uid, { role, cachedAt: Date.now() });
+      middlewareRoleCache.set(uid, { role, permissions, cachedAt: Date.now() });
     }
-    return role;
+    return { role, permissions };
   }
 
   // 1. If not logged in & trying to access protected UI routes
@@ -104,12 +107,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 3. Admin-only route protection for /settings
-  if (user && request.nextUrl.pathname.startsWith("/settings")) {
-    const userRole = await resolveUserRole(user.id);
-    if (userRole !== "Admin") {
+  if (user && !isLoginPage && !isAuthCallback) {
+    const access = await resolveAccess(user.id);
+
+    // 3. Admin-only route protection for /settings
+    if (pathname.startsWith("/settings") && access.role !== "Admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+
+    // 4. A Teacher opens only the pages their permissions cover (lib/permissions/registry.ts)
+    if (access.role === "Teacher" && !canAccessPath(pathname, access)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/teacher";
+      url.search = "?denied=1";
       return NextResponse.redirect(url);
     }
   }

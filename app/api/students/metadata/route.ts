@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/api/guard";
+import { requireStaff } from "@/lib/api/guard";
+import { STUDENT_READ_PERMISSIONS } from "@/lib/permissions/registry";
 import { createClient } from "@/lib/supabase/server";
+import { createDataClient } from "@/lib/supabase/data-client";
 import { sortClasses, CLASS_ORDER } from "@/lib/utils";
 
 interface CachedMetadata {
@@ -17,9 +19,10 @@ const METADATA_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 // GET /api/students/metadata - Returns lightweight distinct filter options
 export async function GET() {
   try {
-    const gate = await requireRole();
+    const gate = await requireStaff(...STUDENT_READ_PERMISSIONS);
     if (!gate.ok) return gate.response;
     const supabase = await createClient();
+    const db = await createDataClient();
 
     // Verify session
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
@@ -38,7 +41,7 @@ export async function GET() {
 
     // 1. Try fast server-side RPC first (calculates distinct values in PostgreSQL directly)
     try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc("get_student_distinct_metadata");
+      const { data: rpcData, error: rpcError } = await db.rpc("get_student_distinct_metadata");
       if (!rpcError && rpcData && typeof rpcData === "object") {
         const rpcClasses = Array.isArray(rpcData.classes) ? rpcData.classes : [];
         const rpcSections = Array.isArray(rpcData.sections) ? rpcData.sections : [];
@@ -80,8 +83,7 @@ export async function GET() {
     let hasMore = true;
 
     while (hasMore) {
-      const { data, error } = await supabase
-        .from("students")
+      const { data, error } = await db.from("students")
         .select("present_class, present_section, admission_year")
         .range(page * pageSize, (page + 1) * pageSize - 1);
 

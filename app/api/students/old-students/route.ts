@@ -1,11 +1,11 @@
 ﻿import { NextResponse } from "next/server";
 import { dbGetOldStudentYears, dbGetOldStudentsByYear } from "@/lib/supabase/db-students";
-import { requireRole } from "@/lib/api/guard";
+import { requireStaff } from "@/lib/api/guard";
 import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function GET(req: Request) {
   try {
-    const gate = await requireRole();
+    const gate = await requireStaff("can_view_old_students");
     if (!gate.ok) return gate.response;
 
     const { searchParams } = new URL(req.url);

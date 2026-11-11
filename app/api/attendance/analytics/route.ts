@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/api/guard";
+import { requireStaff } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayIST } from "@/lib/utils/date";
 
 export async function GET(req: Request) {
   try {
-    const gate = await requireRole();
+    const gate = await requireStaff("can_manage_student_attendance", "can_view_reports");
     if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
