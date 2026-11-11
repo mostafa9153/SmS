@@ -21,6 +21,7 @@ import {
   UserPlus,
   Trophy,
   Library,
+  Package,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -61,6 +62,14 @@ const HUB_ACTIONS: HubAction[] = [
     icon: Library,
     color: "text-teal-600 dark:text-teal-400",
     accentBg: "bg-teal-500/10 border-teal-500/20",
+  },
+  {
+    title: "Assets",
+    desc: "Room-wise stock, repairs & write-offs",
+    href: "/assets",
+    icon: Package,
+    color: "text-amber-600 dark:text-amber-400",
+    accentBg: "bg-amber-500/10 border-amber-500/20",
   },
   {
     title: "Document Hub",
@@ -173,7 +182,7 @@ export function MobileBottomDock() {
     pathname.startsWith("/teacher-management");
   const isHubActive =
     isHubOpen ||
-    ["/sports", "/library", "/results", "/teacher", "/generate", "/ems", "/settings", "/students/promotion", "/students/bulk-upload", "/admin-hub"].some(
+    ["/sports", "/library", "/assets", "/results", "/teacher", "/generate", "/ems", "/settings", "/students/promotion", "/students/bulk-upload", "/admin-hub"].some(
       (prefix) => pathname.startsWith(prefix)
     );
 

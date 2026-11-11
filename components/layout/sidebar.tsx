@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useLayoutEffect } from "react";
 
 const SIDEBAR_PROFILE_KEY = "sms_sidebar_profile";
-import { LayoutDashboard, Users, UserPlus, Upload, ArrowUpDown, Settings, ChevronDown, School, X, Award, CalendarClock, LogOut, ArrowLeft, PanelLeftClose, ShieldAlert, Activity, Cloud, Link2, Sparkles, ClipboardCheck, MapPin, GraduationCap, User, Briefcase, Trophy, Library } from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, Upload, ArrowUpDown, Settings, ChevronDown, School, X, Award, CalendarClock, LogOut, ArrowLeft, PanelLeftClose, ShieldAlert, Activity, Cloud, Link2, Sparkles, ClipboardCheck, MapPin, GraduationCap, User, Briefcase, Trophy, Library, Package } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -111,6 +111,12 @@ const navItems: NavItem[] = [
     href: "/library",
     icon: <Library className="h-4 w-4" />,
     iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Assets",
+    href: "/assets",
+    icon: <Package className="h-4 w-4" />,
+    iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20 group-hover:scale-110",
   },
   {
     label: "EMS (Exam Manager)",
