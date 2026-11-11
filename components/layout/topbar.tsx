@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Menu, Search, PanelLeftOpen, ArrowLeft } from "lucide-react";
+import { Menu, PanelLeftOpen, ArrowLeft } from "lucide-react";
+import { CommandSearch } from "@/components/layout/command-search";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationPanel } from "@/components/layout/notification-panel";
@@ -19,7 +20,6 @@ export function Topbar() {
   const supabase = createClient();
   const { isOpen, toggleSidebar, isMobileOpen, setIsMobileOpen } = useSidebar();
 
-  const [searchValue, setSearchValue] = useState("");
   const [fullName, setFullName] = useState("User");
   const [role, setRole] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -47,14 +47,6 @@ export function Topbar() {
     }
     loadUserProfile();
   }, [supabase]);
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (searchValue.trim()) {
-      router.push(`/students?q=${encodeURIComponent(searchValue.trim())}`);
-      setSearchValue("");
-    }
-  }
 
   return (
     <header className="flex h-[calc(3.25rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] sm:h-12 sm:pt-0 items-center gap-1.5 sm:gap-3 border-b border-border/60 bg-background/85 backdrop-blur-md px-2.5 sm:px-4 sticky top-0 z-30 transition-all">
@@ -98,24 +90,8 @@ export function Topbar() {
         <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
       </button>
 
-      {/* Global search with iOS-zoom-safe font and responsive placeholder */}
-      <form onSubmit={handleSearch} className="flex-1 max-w-xs sm:max-w-md min-w-0">
-        <div className="relative group">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary group-focus-within:scale-110 transition-transform pointer-events-none" />
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Search students, ID, PEN..."
-            className="w-full rounded-lg border border-primary/25 bg-primary/5 hover:bg-primary/8 pl-8 pr-3 sm:pr-9 py-1.5 text-base sm:text-xs font-semibold text-foreground outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all shadow-xs placeholder:text-muted-foreground/75"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex items-center">
-            <kbd className="rounded border border-primary/20 bg-background/80 px-1 py-0.2 text-[9px] font-mono text-muted-foreground shadow-2xs">
-              /
-            </kbd>
-          </div>
-        </div>
-      </form>
+      {/* Search pages, settings and actions */}
+      <CommandSearch isAdmin={role === "Admin"} />
 
       {/* Right controls */}
       <div className="ml-auto flex items-center gap-1 sm:gap-1.5">

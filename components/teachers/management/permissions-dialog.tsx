@@ -1,10 +1,10 @@
 "use client";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
-import { BookOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ClassScopePanel } from "@/components/teachers/class-scope-panel";
+import { ClassTeacherBadges } from "@/components/teachers/class-teacher-badges";
 import { Switch } from "@/components/ui/switch";
 import { toastWithUndo } from "@/lib/undo/client";
 import { Spinner } from "@/components/ui/spinner";
@@ -12,10 +12,10 @@ import { PERMISSION_SECTIONS } from "@/components/teachers/management/permission
 import type { TeacherManagementState } from "./use-teacher-management";
 
 export function PermissionsDialog({ tm }: { tm: TeacherManagementState }) {
-  const { assignments, configureTeacher, expandedSections, loadData, pendingPerms, reloadAssignments, savingPerms, setConfigureTeacher, setErrorMsg, setPendingPerms, setSavingPerms, toggleAllPendingGlobally, toggleAllPendingInSection, toggleSectionExpand } = tm;
+  const { configureTeacher, expandedSections, loadData, pendingPerms, savingPerms, setConfigureTeacher, setErrorMsg, setPendingPerms, setSavingPerms, toggleAllPendingGlobally, toggleAllPendingInSection, toggleSectionExpand } = tm;
   return (
     <Dialog open={!!configureTeacher} onOpenChange={(open) => { if (!open) { setConfigureTeacher(null); setPendingPerms(null); } }}>
-      <DialogContent className="rounded-3xl max-w-3xl p-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 shadow-2xl">
+      <DialogContent className="rounded-3xl max-w-2xl p-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 shadow-2xl">
         <div className="flex flex-col md:flex-row min-h-[620px] max-h-[85vh]">
           {/* Left: Permissions Accordion Panel */}
           <div className="flex-1 flex flex-col bg-card overflow-hidden">
@@ -34,6 +34,7 @@ export function PermissionsDialog({ tm }: { tm: TeacherManagementState }) {
                       </span>
                     </DialogTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">{configureTeacher?.designation || "Teaching Staff"}</p>
+                    <ClassTeacherBadges teacherName={configureTeacher?.fullName} />
                   </div>
                 </div>
 
@@ -219,19 +220,6 @@ export function PermissionsDialog({ tm }: { tm: TeacherManagementState }) {
                 </Button>
               </div>
             </div>
-          </div>
-
-          {/* Right: Class Scope Panel */}
-          <div className="w-full md:w-64 shrink-0 bg-muted/40 border-t md:border-t-0 md:border-l border-border/60 flex flex-col">
-            <div className="p-4 border-b border-border/60 bg-muted/20">
-              <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <BookOpen className="h-3.5 w-3.5 text-primary" /> Class Scope
-              </p>
-            </div>
-
-            {configureTeacher && (
-              <ClassScopePanel teacherId={configureTeacher.id} assignments={assignments} onChanged={reloadAssignments} />
-            )}
           </div>
         </div>
       </DialogContent>

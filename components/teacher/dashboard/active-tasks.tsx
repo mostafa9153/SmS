@@ -3,6 +3,7 @@
 import { ClipboardList, CheckCircle2, Clock, IndianRupee, ArrowRight, FileCheck, User, Edit2, Paperclip, FileText, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { getTaskTypeDef } from "@/lib/teachers/task-types";
 import type { TeacherDashboardState } from "./use-teacher-dashboard";
 
 export function ActiveTasks({ gen }: { gen: TeacherDashboardState }) {
@@ -58,6 +59,11 @@ export function ActiveTasks({ gen }: { gen: TeacherDashboardState }) {
                       >
                         {isSubmitted ? "Submitted" : isInProgress ? "In Progress" : "To-Do"}
                       </span>
+                      {task.taskType && (
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${getTaskTypeDef(task.taskType).color}`}>
+                          {getTaskTypeDef(task.taskType).label}
+                        </span>
+                      )}
                       {task.targetClass && (
                         <span className="px-2 py-1 rounded-lg bg-muted text-foreground text-[10px] font-semibold border border-border/60">
                           Class {task.targetClass} {task.targetSection ? `(${task.targetSection})` : ""}
@@ -165,7 +171,7 @@ export function ActiveTasks({ gen }: { gen: TeacherDashboardState }) {
                         onClick={() => handleStartTask(task)}
                         className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-xs cursor-pointer group/btn"
                       >
-                        <span>Start Task</span>
+                        <span>{isInProgress ? "Continue" : "Start Task"}</span>
                         <ArrowRight className="h-3.5 w-3.5 ml-1.5 group-hover/btn:translate-x-1 transition-transform" />
                       </Button>
                       <Button

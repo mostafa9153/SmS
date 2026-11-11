@@ -51,7 +51,6 @@ export function StatusChart() {
           </div>
           <div>
             <p className="text-sm font-bold text-foreground">Enrolment Status Breakdown</p>
-            <p className="text-[10px] text-muted-foreground">Continuing vs transferred & dropout</p>
           </div>
         </div>
         <Link

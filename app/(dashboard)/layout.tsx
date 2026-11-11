@@ -7,6 +7,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { MobileBottomDock } from "@/components/layout/mobile-bottom-dock";
 import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-context";
 import { cn } from "@/lib/utils";
+import { RouteGuard } from "@/components/layout/route-guard";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -97,7 +98,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           <Topbar />
         </div>
         <main className="flex-1 overflow-y-auto min-w-0 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 custom-scrollbar animate-fade-in-up print:overflow-visible print:h-auto print:p-0 print:m-0">
-          {children}
+          <RouteGuard>{children}</RouteGuard>
         </main>
         <MobileBottomDock />
       </div>

@@ -6,13 +6,7 @@ import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { mustWrite } from "@/lib/supabase/write";
 import { recordUndo, snapshotRows, type RestoreStep } from "@/lib/undo/journal";
-
-// Mapping of task types to required permissions
-const TASK_PERMISSION_MAP: Record<string, string> = {
-  RE_ADMISSION: "can_handle_readmission",
-  MARKSHEET: "can_enter_results",
-  INVOICE_COLLECTION: "can_generate_invoices",
-};
+import { getTaskTypeDef, isValidTaskType } from "@/lib/teachers/task-types";
 
 // GET /api/teachers/tasks - List tasks
 export async function GET(req: Request) {
@@ -180,13 +174,17 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!isValidTaskType(taskType)) {
+      return NextResponse.json({ error: "Invalid task type." }, { status: 400 });
+    }
+
     // 1. Fetch linked user_id and permissions for each teacher
     const { data: linkedRoles } = await adminClient
       .from("user_roles")
       .select("user_id, staff_id, full_name, permissions")
       .in("staff_id", teacherIds);
 
-    const requiredPermission = TASK_PERMISSION_MAP[taskType];
+    const requiredPermission = getTaskTypeDef(taskType).permission;
 
     // If autoGrantPermissions is false, verify all assigned teachers possess required permission
     if (requiredPermission && !autoGrantPermissions) {
