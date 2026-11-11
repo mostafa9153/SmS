@@ -70,9 +70,7 @@ export async function fetchSchoolConfigClient(forceRefresh = false): Promise<Rec
         if (data.marks_schemes && Array.isArray(data.marks_schemes)) {
           safeSet("sms_marks_distribution_schemes", data.marks_schemes);
         }
-        if (data.ems_rooms && Array.isArray(data.ems_rooms)) {
-          safeSet("sms_ems_saved_rooms_v1", data.ems_rooms);
-        }
+        // Rooms now live in the rooms table (/api/rooms). The old local copy is left untouched as a fallback record.
         if (data.ems_allocations && Array.isArray(data.ems_allocations)) {
           const list = data.ems_allocations.slice(0, 5);
           let saved = false;

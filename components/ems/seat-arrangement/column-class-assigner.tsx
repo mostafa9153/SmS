@@ -4,7 +4,7 @@ import React from "react";
 import { RoomColumnConfig } from "@/lib/ems/types";
 import { ColumnClassAllocationConfig, ArrangementPattern } from "@/lib/ems/seat-arrangement-types";
 import { getDefaultSeatDirection } from "@/lib/ems/seat-arrangement-algorithm";
-import { cleanColumnLabel } from "@/lib/ems/room-storage";
+import { cleanColumnLabel } from "@/lib/ems/room-utils";
 import { CustomSelect, CustomSelectOption } from "@/components/ui/custom-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -1,7 +1,6 @@
-// EMS Room and Allocation Storage Utility
-import { EmsRoom, ExamAllocation } from "./types";
+// EMS Allocation Storage Utility (rooms live in the rooms table: lib/rooms)
+import type { ExamAllocation } from "./types";
 
-const ROOMS_STORAGE_KEY = "sms_ems_saved_rooms_v1";
 const ALLOCATIONS_STORAGE_KEY = "sms_ems_saved_allocations_v1";
 const ACTIVE_ALLOCATION_STORAGE_KEY = "sms_ems_active_allocation_v1";
 
@@ -9,75 +8,9 @@ const ACTIVE_ALLOCATION_STORAGE_KEY = "sms_ems_active_allocation_v1";
 const MAX_SAVED_ALLOCATIONS = 10;
 
 // In-memory runtime cache for resilience if storage quota is strictly exhausted
-let memoryRooms: EmsRoom[] | null = null;
 let memoryAllocations: ExamAllocation[] | null = null;
 let memoryActiveAllocation: ExamAllocation | null = null;
 
-// Clean column label helper to strip (Window Side), (Middle Side), etc.
-export function cleanColumnLabel(label?: string, columnIndex?: number): string {
-  if (!label) return columnIndex ? `Column ${columnIndex}` : "Column";
-  const cleaned = label.replace(/\s*\([^)]*(?:Side|Window|Middle|Door|Aisle|Wall|Left|Right)[^)]*\)/gi, "").trim();
-  return cleaned || (columnIndex ? `Column ${columnIndex}` : label);
-}
-
-// Default pre-configured classrooms for immediate use
-const DEFAULT_ROOMS: EmsRoom[] = [
-  {
-    id: "room-101",
-    roomNumber: "Room 101",
-    floor: "Ground Floor",
-    building: "Main Academic Block",
-    defaultSeatsPerBench: 3,
-    columns: [
-      { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 3 },
-      { columnIndex: 2, columnLabel: "Column 2", benchCount: 5, seatsPerBench: 3 }, // 1 less bench for door space
-      { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 3 },
-    ],
-    totalCapacity: 51, // (6*3) + (5*3) + (6*3) = 18 + 15 + 18 = 51
-    notes: "Column 2 has 5 benches due to rear exit walkway",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "room-102",
-    roomNumber: "Room 102",
-    floor: "1st Floor",
-    building: "Main Academic Block",
-    defaultSeatsPerBench: 3,
-    columns: [
-      { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 3 },
-      { columnIndex: 2, columnLabel: "Column 2", benchCount: 6, seatsPerBench: 3 },
-      { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 3 },
-    ],
-    totalCapacity: 54, // (6*3) + (6*3) + (6*3) = 54
-    notes: "Standard rectangular classroom with 3 equal columns",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "room-201",
-    roomNumber: "Hall A (Auditorium)",
-    floor: "2nd Floor",
-    building: "Centenary Hall",
-    defaultSeatsPerBench: 3,
-    columns: [
-      { columnIndex: 1, columnLabel: "Column 1", benchCount: 7, seatsPerBench: 3 },
-      { columnIndex: 2, columnLabel: "Column 2", benchCount: 8, seatsPerBench: 3 },
-      { columnIndex: 3, columnLabel: "Column 3", benchCount: 8, seatsPerBench: 3 },
-      { columnIndex: 4, columnLabel: "Column 4", benchCount: 7, seatsPerBench: 3 },
-    ],
-    totalCapacity: 90, // (7*3) + (8*3) + (8*3) + (7*3) = 21 + 24 + 24 + 21 = 90
-    notes: "Large exam hall suitable for combined board tests",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-// Helper to calculate total capacity from columns
-export function calculateRoomCapacity(columns: EmsRoom["columns"]): number {
-  if (!Array.isArray(columns)) return 0;
-  return columns.reduce((total, col) => total + (col.benchCount || 0) * (col.seatsPerBench || 3), 0);
-}
 
 // Safely write to storage with fallback
 function safeWriteItem(key: string, value: any): boolean {
@@ -112,52 +45,6 @@ function safeWriteItem(key: string, value: any): boolean {
   }
 }
 
-function sanitizeRoomColumns(rooms: EmsRoom[]): EmsRoom[] {
-  if (!Array.isArray(rooms)) return [];
-  return rooms.map((r) => ({
-    ...r,
-    columns: (r.columns || []).map((c) => ({
-      ...c,
-      columnLabel: cleanColumnLabel(c.columnLabel, c.columnIndex),
-    })),
-  }));
-}
-
-// Retrieve all rooms (with fallback to default rooms)
-export function getSavedRooms(): EmsRoom[] {
-  if (typeof window === "undefined") return DEFAULT_ROOMS;
-  try {
-    const raw = localStorage.getItem(ROOMS_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const sanitized = sanitizeRoomColumns(parsed);
-        memoryRooms = sanitized;
-        return sanitized;
-      }
-    }
-    const sessionRaw = sessionStorage.getItem(ROOMS_STORAGE_KEY);
-    if (sessionRaw) {
-      const parsed = JSON.parse(sessionRaw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const sanitized = sanitizeRoomColumns(parsed);
-        memoryRooms = sanitized;
-        return sanitized;
-      }
-    }
-    if (memoryRooms && memoryRooms.length > 0) {
-      return sanitizeRoomColumns(memoryRooms);
-    }
-    // Initialize default rooms in storage
-    safeWriteItem(ROOMS_STORAGE_KEY, DEFAULT_ROOMS);
-    memoryRooms = DEFAULT_ROOMS;
-    return DEFAULT_ROOMS;
-  } catch (err) {
-    console.error("[EMS Storage] Error reading saved rooms:", err);
-    return memoryRooms ? sanitizeRoomColumns(memoryRooms) : DEFAULT_ROOMS;
-  }
-}
-
 /**
  * Robust DB Sync helper for EMS data key-value persistence via /api/school-config.
  * Validates HTTP response status and handles error logging gracefully.
@@ -184,38 +71,6 @@ async function syncKeyToDb(key: string, value: any): Promise<boolean> {
     return false;
   }
 }
-
-export function saveRooms(rooms: EmsRoom[]): Promise<boolean> {
-  if (typeof window === "undefined") return Promise.resolve(false);
-  memoryRooms = rooms;
-  safeWriteItem(ROOMS_STORAGE_KEY, rooms);
-  return syncKeyToDb("ems_rooms", rooms);
-}
-
-// Save or update a single room
-export function saveRoom(room: EmsRoom): void {
-  const rooms = getSavedRooms();
-  const index = rooms.findIndex((r) => r.id === room.id);
-  const updatedRoom = {
-    ...room,
-    totalCapacity: calculateRoomCapacity(room.columns),
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (index >= 0) {
-    rooms[index] = updatedRoom;
-  } else {
-    rooms.unshift(updatedRoom);
-  }
-  saveRooms(rooms);
-}
-
-// Delete room by ID
-export function deleteRoom(id: string): void {
-  const rooms = getSavedRooms().filter((r) => r.id !== id);
-  saveRooms(rooms);
-}
-
 // Retrieve saved exam allocations
 export function getSavedAllocations(): ExamAllocation[] {
   if (typeof window === "undefined") return [];

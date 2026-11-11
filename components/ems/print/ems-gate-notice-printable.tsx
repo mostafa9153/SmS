@@ -3,7 +3,7 @@
 import React from "react";
 import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
-import { cleanColumnLabel } from "@/lib/ems/room-storage";
+import { cleanColumnLabel } from "@/lib/ems/room-utils";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
 interface EmsGateNoticePrintableProps {

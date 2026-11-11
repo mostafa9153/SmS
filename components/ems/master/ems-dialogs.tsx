@@ -3,7 +3,6 @@
 import { RoomEditorDialog } from "@/components/ems/room-editor-dialog";
 import { RoomsManagerDialog } from "@/components/ems/rooms-manager-dialog";
 import { MismatchModal } from "@/components/ems/mismatch-modal";
-import { getSavedRooms, saveRoom } from "@/lib/ems/room-storage";
 import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
 import { MissingHsRegistrationDialog } from "@/components/ems/auto-allocation-wizard";
 import { StudentRosterDialog } from "@/components/ems/student-roster-dialog";
@@ -11,7 +10,7 @@ import { StudentRosterDialog } from "@/components/ems/student-roster-dialog";
 import type { EmsMasterState } from "./use-ems-master";
 
 export function EmsDialogs({ ems }: { ems: EmsMasterState }) {
-  const { activeBlueprintRoomId, editingRoom, editorOpen, generatedAllocation, handleDeleteRoom, handleOpenEditRoom, handleOpenNewRoom, handleProceedWithMismatch, handleSaveRosterExclusions, mismatchModalOpen, mismatchReport, missingHsList, missingHsModalOpen, pendingHsProceedAction, printDialogOpen, rooms, roomsManagerOpen, rosterModalState, setEditorOpen, setMismatchModalOpen, setMissingHsModalOpen, setPendingHsProceedAction, setPrintDialogOpen, setRooms, setRoomsManagerOpen, setRosterModalState } = ems;
+  const { activeBlueprintRoomId, editingRoom, editorOpen, generatedAllocation, handleDeleteRoom, handleOpenEditRoom, handleOpenNewRoom, handleProceedWithMismatch, handleSaveRosterExclusions, mismatchModalOpen, mismatchReport, missingHsList, missingHsModalOpen, pendingHsProceedAction, printDialogOpen, rooms, roomsManagerOpen, rosterModalState, setEditorOpen, setMismatchModalOpen, setMissingHsModalOpen, setPendingHsProceedAction, setPrintDialogOpen, setRoomsManagerOpen, setRosterModalState } = ems;
   return (
     <>
       {/* Rooms Manager Dialog */}
@@ -28,11 +27,7 @@ export function EmsDialogs({ ems }: { ems: EmsMasterState }) {
       <RoomEditorDialog
         isOpen={editorOpen}
         onClose={() => setEditorOpen(false)}
-        onSave={(room) => {
-          saveRoom(room);
-          const updated = getSavedRooms();
-          setRooms(updated);
-        }}
+        onSave={(room) => ems.examRooms.saveRoom(room)}
         initialRoom={editingRoom}
       />
 

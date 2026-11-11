@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { cleanColumnLabel } from "@/lib/ems/room-storage";
+import { cleanColumnLabel } from "@/lib/ems/room-utils";
 import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
 import { SeatCard, getClassColorStyle } from "./seat-card";
 import { Button } from "@/components/ui/button";

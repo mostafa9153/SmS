@@ -22,7 +22,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { EmsRoom } from "@/lib/ems/types";
-import { calculateRoomCapacity } from "@/lib/ems/room-storage";
+import { calculateRoomCapacity } from "@/lib/ems/room-utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface RoomsManagerDialogProps {
