@@ -1,12 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mustWrite } from "@/lib/supabase/write";
 import { recordUndo, snapshotRows } from "@/lib/undo/journal";
+import { roomHasStock } from "@/lib/assets/db-assets";
 import type { RoomInput, RoomRow } from "./types";
 
 const TABLE = "rooms";
 
 export class RoomError extends Error {
-  constructor(message: string, readonly status: 400 | 404 | 409) {
+  constructor(message: string, readonly status: 400 | 403 | 404 | 409) {
     super(message);
   }
 }
@@ -52,10 +53,14 @@ export async function createRoom(input: RoomInput, actorId: string) {
   return { room, undoId };
 }
 
-export async function updateRoom(id: string, patch: Partial<RoomInput>, actorId: string) {
+/** Exam rooms (and making a room an exam room) belong to EMS; Assets-only users manage the other rooms. */
+const EMS_ONLY = "Exam rooms are managed from EMS.";
+
+export async function updateRoom(id: string, patch: Partial<RoomInput>, actorId: string, opts: { ems: boolean }) {
   const admin = createAdminClient();
   const before = (await snapshotRows(admin, TABLE, "id", id)) as RoomRow[];
   if (!before.length || before[0].archived_at) throw new RoomError("Room not found.", 404);
+  if (!opts.ems && (before[0].is_exam_room || patch.is_exam_room || patch.ems_layout)) throw new RoomError(EMS_ONLY, 403);
   // Only a real rename is checked, so an old duplicate never blocks editing its layout.
   const renamed = patch.name !== undefined && patch.name.toLowerCase() !== before[0].name.trim().toLowerCase();
   if (renamed && (await activeNameTaken(patch.name!, id))) throw new RoomError(`A room named "${patch.name}" already exists.`, 409);
@@ -75,10 +80,12 @@ export async function updateRoom(id: string, patch: Partial<RoomInput>, actorId:
 }
 
 /** Rooms are archived, never hard-deleted: saved EMS allocations and (later) asset history point at them. */
-export async function archiveRoom(id: string, actorId: string) {
+export async function archiveRoom(id: string, actorId: string, opts: { ems: boolean }) {
   const admin = createAdminClient();
   const before = (await snapshotRows(admin, TABLE, "id", id)) as RoomRow[];
   if (!before.length || before[0].archived_at) throw new RoomError("Room not found.", 404);
+  if (!opts.ems && before[0].is_exam_room) throw new RoomError(EMS_ONLY, 403);
+  if (await roomHasStock(id)) throw new RoomError("This room still has items. Move them to another room first.", 409);
   const { data } = await mustWrite(
     admin.from(TABLE).update({ archived_at: new Date().toISOString() }).eq("id", id).select("*").single(),
     "Remove room",
