@@ -3,7 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
+
+const SIDEBAR_PROFILE_KEY = "sms_sidebar_profile";
 import { LayoutDashboard, Users, UserPlus, Upload, ArrowUpDown, Settings, ChevronDown, School, X, Award, CalendarClock, LogOut, ArrowLeft, PanelLeftClose, ShieldAlert, Activity, Cloud, Link2, Sparkles, ClipboardCheck, MapPin, GraduationCap, User, Briefcase, Trophy, Library } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -18,6 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { useAccess, clearAccessCache } from "@/lib/hooks/use-access";
+import { canAccessPath } from "@/lib/navigation/route-access";
 
 interface NavChildSubItem {
   label: string;
@@ -496,10 +500,30 @@ export function Sidebar({
   const { toggleSidebar } = useSidebar();
 
   const [fullName, setFullName] = useState("User");
-  const [role, setRole] = useState("Staff");
+  // null until the role is known: admin-only items are not hidden-then-added, a placeholder holds their place
+  const [roleState, setRole] = useState<string | null>(null);
+  const role = roleState ?? "Staff";
+  const access = useAccess();
+  const canSee = (item: NavItem) => {
+    const hrefs = item.children ? item.children.map((c) => c.href) : [item.href];
+    return hrefs.some((h) => !h || canAccessPath(h, access));
+  };
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [designation, setDesignation] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Last known profile, applied before the first paint so every menu item shows together
+  useLayoutEffect(() => {
+    try {
+      const raw = localStorage.getItem(SIDEBAR_PROFILE_KEY);
+      if (!raw) return;
+      const c = JSON.parse(raw);
+      if (c?.role) setRole(c.role);
+      if (c?.fullName) setFullName(c.fullName);
+      setPhotoUrl(c?.photoUrl || null);
+      setDesignation(c?.designation || "");
+    } catch {}
+  }, []);
 
   useEffect(() => {
     async function loadUserProfile() {
@@ -507,10 +531,17 @@ export function Sidebar({
         const res = await fetch("/api/auth/profile");
         const data = await res.json();
         if (data.success && data.user) {
-          setFullName(data.user.fullName || data.staff?.full_name || "User");
-          setRole(data.user.role || "Staff");
-          setPhotoUrl(data.staff?.profile_picture_url || null);
-          setDesignation(data.staff?.designation || data.user.role || "Staff");
+          const next = {
+            fullName: data.user.fullName || data.staff?.full_name || "User",
+            role: data.user.role || "Staff",
+            photoUrl: data.staff?.profile_picture_url || null,
+            designation: data.staff?.designation || data.user.role || "Staff",
+          };
+          setFullName(next.fullName);
+          setRole(next.role);
+          setPhotoUrl(next.photoUrl);
+          setDesignation(next.designation);
+          try { localStorage.setItem(SIDEBAR_PROFILE_KEY, JSON.stringify(next)); } catch {}
         } else {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
@@ -526,6 +557,8 @@ export function Sidebar({
 
   async function handleLogout() {
     setIsLoggingOut(true);
+    try { localStorage.removeItem(SIDEBAR_PROFILE_KEY); } catch {}
+    clearAccessCache();
     if (onClose) onClose();
     await supabase.auth.signOut();
     router.replace("/login");
@@ -630,10 +663,17 @@ export function Sidebar({
           </div>
         ) : (
           navItems
-            .filter((item) => !item.adminOnly || role === "Admin")
-            .map((item) => (
-              <NavGroup key={item.label} item={item} onNavigate={onClose} />
-            ))
+            .filter((item) => (!item.adminOnly || roleState === null || role === "Admin") && canSee(item))
+            .map((item) =>
+              item.adminOnly && roleState === null ? (
+                <div key={item.label} className="flex items-center gap-3 px-3 py-2" aria-hidden>
+                  <div className="h-8 w-8 rounded-xl bg-muted animate-pulse" />
+                  <div className="h-3 w-28 rounded bg-muted animate-pulse" />
+                </div>
+              ) : (
+                <NavGroup key={item.label} item={item} onNavigate={onClose} />
+              )
+            )
         )}
       </nav>
 

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { TeacherPortalStats, TeacherAbsence } from "@/lib/types/teacher";
 import { todayIST } from "@/lib/utils/date";
+import { taskStartRoute } from "@/lib/teachers/task-types";
 
 
 export function useTeacherDashboard() {
@@ -421,13 +422,10 @@ export function useTeacherDashboard() {
         console.error("Error marking task in progress:", err);
       }
 
-      // Redirect directly to the appropriate module with preselected filters
-      if (task.taskType === "RE_ADMISSION") {
-        router.push(`/admission/re?class=${task.targetClass || ""}&section=${task.targetSection || ""}`);
-      } else if (task.taskType === "MARKSHEET") {
-        router.push(`/generate/marksheet?class=${task.targetClass || ""}`);
-      } else if (task.taskType === "INVOICE_COLLECTION") {
-        router.push(`/invoices?class=${task.targetClass || ""}`);
+      // Open the task's module with its class/section preselected
+      const route = taskStartRoute(task);
+      if (route) {
+        router.push(route);
       } else {
         loadDashboardData();
       }

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 
+import { taskTypeLabel } from "@/lib/teachers/task-types";
 import type { TeacherDashboardState } from "./use-teacher-dashboard";
 
 export function TaskReportDialog({ gen }: { gen: TeacherDashboardState }) {
@@ -19,7 +20,7 @@ export function TaskReportDialog({ gen }: { gen: TeacherDashboardState }) {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] uppercase border border-emerald-500/30">
-                  {selectedTaskForReport?.taskType || "TASK"}
+                  {selectedTaskForReport?.taskType ? taskTypeLabel(selectedTaskForReport.taskType) : "TASK"}
                 </span>
                 {selectedTaskForReport?.targetClass && (
                   <span className="text-xs text-muted-foreground font-semibold">

@@ -2,9 +2,7 @@ import Link from "next/link";
 import nextDynamic from "next/dynamic";
 import { GraduationCap, Sparkles, ShieldCheck, Award, Trophy } from "lucide-react";
 import { TopMobileHeader } from "@/components/dashboard/top-mobile-header";
-import { QuickActionsBar } from "@/components/dashboard/quick-actions-bar";
 import { StatCards } from "@/components/dashboard/stat-cards";
-import { AppleActivityRings } from "@/components/dashboard/apple-activity-rings";
 import { WelfareSchemesVisual } from "@/components/dashboard/welfare-schemes-visual";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -29,14 +27,8 @@ export default function DashboardPage() {
       {/* 1. Top Mobile Header */}
       <TopMobileHeader />
 
-      {/* 2. Horizontal Scrollable Touch Quick Action Glass Pills */}
-      <QuickActionsBar />
-
-      {/* 3. Bento Grid Metric Cards (Neon Cyber Amber & Emerald Highlights) */}
+      {/* 2. Bento Grid Metric Cards */}
       <StatCards />
-
-      {/* 4. Activity Rings (SVG rings for Attendance, Fees, Syllabus) */}
-      <AppleActivityRings />
 
       {/* 5. Class Strength & Welfare Visual Analytics */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -71,9 +63,6 @@ export default function DashboardPage() {
               <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 Admission Portal
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                New intake & AI scanner
-              </p>
             </div>
           </Link>
 
@@ -87,9 +76,6 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs font-bold text-foreground group-hover:text-amber-800 dark:group-hover:text-[#FACC15] transition-colors">
                 Results & Marks
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Tabulation & marksheets
               </p>
             </div>
           </Link>
@@ -105,9 +91,6 @@ export default function DashboardPage() {
               <p className="text-xs font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                 Document Hub
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                ID cards & certificates
-              </p>
             </div>
           </Link>
 
@@ -122,9 +105,6 @@ export default function DashboardPage() {
               <p className="text-xs font-bold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
                 Sports & Games
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Events, bibs & certificates
-              </p>
             </div>
           </Link>
 <Link
@@ -137,9 +117,6 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs font-bold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
                 Admin Roles
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Security & privileges
               </p>
             </div>
           </Link>

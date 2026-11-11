@@ -113,7 +113,6 @@ export function WelfareSchemesVisual() {
           </div>
           <div>
             <p className="text-sm font-bold text-foreground">Welfare & Schemes Overview</p>
-            <p className="text-[10px] text-muted-foreground">State & central benefit coverages</p>
           </div>
         </div>
         <Link

@@ -3,6 +3,7 @@
 import { CheckCircle2, Clock, Plus, Trash2, ClipboardList, FileCheck, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { taskTypeLabel } from "@/lib/teachers/task-types";
 import type { TeacherManagementState } from "./use-teacher-management";
 
 export function TasksTab({ tm }: { tm: TeacherManagementState }) {
@@ -38,7 +39,7 @@ export function TasksTab({ tm }: { tm: TeacherManagementState }) {
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-foreground">{task.title}</h3>
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                      {task.task_type}
+                      {taskTypeLabel(task.task_type)}
                     </span>
                     {task.target_class && (
                       <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-semibold">

@@ -8,6 +8,7 @@ import { TeacherPermissions } from "@/lib/types/teacher";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { VALID_TEACHER_TABS } from "@/components/teachers/management/tabs";
 import { PERMISSION_SECTIONS } from "@/components/teachers/management/permissions";
+import { getTaskTypeDef } from "@/lib/teachers/task-types";
 
 export function useTeacherManagement() {
   const confirm = useConfirm();
@@ -102,7 +103,7 @@ export function useTeacherManagement() {
   const [taskDescription, setTaskDescription] = useState("");
   const [taskType, setTaskType] = useState<string>("RE_ADMISSION");
   const [taskTargetClass, setTaskTargetClass] = useState("V");
-  const [taskTargetSection, setTaskTargetSection] = useState("A");
+  const [taskTargetSection, setTaskTargetSection] = useState("ALL");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [selectedTeacherIdsForTask, setSelectedTeacherIdsForTask] = useState<string[]>([]);
 
@@ -268,6 +269,8 @@ export function useTeacherManagement() {
 
     setSubmitting(true);
     setErrorMsg("");
+    const usesClass = getTaskTypeDef(taskType).usesClass;
+    const targetClass = usesClass && taskTargetClass ? taskTargetClass : null;
     try {
       await apiFetch("/api/teachers/tasks", {
         method: "POST",
@@ -275,8 +278,8 @@ export function useTeacherManagement() {
           title: taskTitle.trim(),
           description: taskDescription.trim(),
           taskType,
-          targetClass: taskTargetClass,
-          targetSection: taskTargetSection,
+          targetClass,
+          targetSection: targetClass ? taskTargetSection : null,
           dueDate: taskDueDate || null,
           teacherIds: selectedTeacherIdsForTask,
         },
