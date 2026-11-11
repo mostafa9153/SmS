@@ -5,6 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { AuthContext } from "@/lib/supabase/auth-helper";
 import { softWrite } from "@/lib/supabase/write";
 import { libraryError } from "@/lib/library/errors";
+import { assetError } from "@/lib/assets/errors";
+
+/** Database rule errors raised by undo functions (LIB:..., AST:...), as { code, message }. */
+function knownRpcError(message: string): { code: string; message: string } | null {
+  return libraryError(message) ?? assetError(message);
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- rows are opaque table snapshots */
 
@@ -36,7 +42,7 @@ async function runStep(supabase: SupabaseClient, step: RestoreStep, entryId: str
     const args = step.actorArgs ? { ...step.args, p_actor: actorId, p_request_id: undoRequestId(entryId, actorId) } : step.args;
     const { error } = await supabase.rpc(step.fn, args);
     if (!error) return;
-    const known = libraryError(error.message);
+    const known = knownRpcError(error.message);
     // An earlier attempt committed but its answer was lost: the reverse is already done.
     if (known?.code === "already_undone") return;
     if (known) throw new UndoConflict(known.message);
@@ -46,6 +52,8 @@ async function runStep(supabase: SupabaseClient, step: RestoreStep, entryId: str
     step.op === "upsert"
       ? await supabase.from(step.table).upsert(step.rows)
       : await supabase.from(step.table).delete().in(step.column, step.values);
+  // Rows added since (e.g. stock in a room being "un-created") block the restore: a conflict, not a crash.
+  if (error?.code === "23503") throw new UndoConflict("This is in use now, so it can't be undone. Remove what was added to it first.");
   if (error) throw new Error(`${step.table}: ${error.message}`);
 }
 

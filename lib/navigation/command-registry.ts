@@ -42,6 +42,7 @@ export const COMMANDS: CommandItem[] = [
   { id: "a-class-teacher-list", group: "Actions", label: "Class Teacher List", href: "/generate/class-teacher-list" },
   { id: "a-blank-pad", group: "Actions", label: "Blank Letter Pad", href: "/generate/blank-pad", keywords: ["letterhead", "pad"] },
   { id: "a-library-issue", group: "Actions", label: "Library Desk", href: "/library", keywords: ["issue book", "return book", "renew"] },
+  { id: "a-asset-rooms", group: "Actions", label: "Assets", href: "/assets", keywords: ["stock", "inventory", "dead stock", "furniture", "bench"] },
   { id: "a-library-stickers", group: "Actions", label: "Book Stickers", href: "/library/stickers", keywords: ["label", "barcode"] },
 
   // Pages

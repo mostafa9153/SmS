@@ -1,13 +1,12 @@
 "use client";
 
-import { getSavedRooms, deleteRoom } from "@/lib/ems/room-storage";
 import { EmsRoom } from "@/lib/ems/types";
 import { normalizeClassCode, isHigherSecondaryClass } from "@/lib/ems/seat-arrangement-algorithm";
 import { calculateHsStudentStats } from "@/components/ems/auto-allocation-wizard";
 import type { EmsCore } from "./use-ems-core";
 
 export function useEmsRoomSetup(ctx: EmsCore) {
-  const { allStudents, classGroups, completedSteps, roomClassMap, rooms, selectedRoomIds, setCompletedSteps, setEditingRoom, setEditorOpen, setRoomClassMap, setRooms, setSelectedRoomIds, studentsPerBench } = ctx;
+  const { examRooms, allStudents, classGroups, completedSteps, roomClassMap, rooms, selectedRoomIds, setCompletedSteps, setEditingRoom, setEditorOpen, setRoomClassMap, setSelectedRoomIds, studentsPerBench } = ctx;
   // Unique participating classes configured in Step 2
   const uniqueParticipatingClasses = Array.from(
     new Set(classGroups.map((g) => normalizeClassCode(g.class)))
@@ -64,9 +63,9 @@ export function useEmsRoomSetup(ctx: EmsCore) {
   };
 
   const handleDeleteRoom = (roomId: string) => {
-    deleteRoom(roomId);
-    const updated = getSavedRooms();
-    setRooms(updated);
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) return;
+    examRooms.removeRoom(room);
     setSelectedRoomIds((prev) => prev.filter((id) => id !== roomId));
   };
 

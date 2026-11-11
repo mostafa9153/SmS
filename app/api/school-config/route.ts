@@ -11,7 +11,6 @@ const VALID_KEYS = [
   "class_management",
   "marks_schemes",
   "promotion_policy",
-  "ems_rooms",
   "ems_allocations",
   "ems_exam_routines",
   "ems_exam_start_time",
@@ -194,8 +193,7 @@ export async function GET(request: Request) {
       "class_management",
       "marks_schemes",
       "promotion_policy",
-      "ems_rooms",
-      "ems_allocations",
+          "ems_allocations",
       "address_presets_config",
       "bank_presets",
       "school_presets",
@@ -274,6 +272,11 @@ export async function POST(request: Request) {
           { status: 403 }
         );
       }
+    }
+
+    // Rooms moved to the rooms table (/api/rooms); the old blob stays as a read-only rollback copy.
+    if (key === "ems_rooms") {
+      return NextResponse.json({ error: "Rooms are saved through /api/rooms" }, { status: 410 });
     }
 
     if (!key || value === undefined) {

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getSavedRooms, saveRooms, getSavedAllocations, getActiveAllocation, saveActiveAllocation, fetchAllocationsFromDb } from "@/lib/ems/room-storage";
+import { getSavedAllocations, getActiveAllocation, saveActiveAllocation, fetchAllocationsFromDb } from "@/lib/ems/room-storage";
+import { useExamRooms } from "@/lib/rooms/use-exam-rooms";
 import { pullExamSetup, pushExamSetup } from "@/lib/ems/exam-setup-sync";
 import { fetchContinuingStudents } from "@/lib/ems/allocation-engine";
 import { Student } from "@/lib/types";
@@ -167,6 +168,16 @@ export function useEmsCore() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<EmsRoom | null>(null);
   const [roomsManagerOpen, setRoomsManagerOpen] = useState(false);
+  // Exam rooms come from the rooms table; local state mirrors them for the wizard.
+  const examRooms = useExamRooms();
+  useEffect(() => {
+    const list = examRooms.rooms;
+    if (!list) return;
+    setRooms(list);
+    setSelectedRoomIds((prev) =>
+      prev.length === 0 ? (list.length ? [list[0].id] : []) : prev.filter((id) => list.some((r) => r.id === id)),
+    );
+  }, [examRooms.rooms]);
 
   // Drag-and-drop room serial reordering state
   const [draggedRoomIndex, setDraggedRoomIndex] = useState<number | null>(null);
@@ -187,7 +198,7 @@ export function useEmsCore() {
     const [moved] = updated.splice(fromIndex, 1);
     updated.splice(toIndex, 0, moved);
     setRooms(updated);
-    saveRooms(updated);
+    examRooms.reorderRooms(updated.map((r) => r.id));
   };
 
   const handleMoveRoom = (index: number, direction: "up" | "down") => {
@@ -327,10 +338,6 @@ export function useEmsCore() {
 
   useEffect(() => {
     setMounted(true);
-    const saved = getSavedRooms();
-    if (saved.length > 0) {
-      setRooms(saved);
-    }
     const savedAllocs = getSavedAllocations();
     setSavedAllocations(savedAllocs);
 
@@ -348,15 +355,10 @@ export function useEmsCore() {
       }
     });
 
-    // Sync fresh configs (classes, school profile, rooms) from database
+    // Sync fresh configs (classes, school profile) from database
     syncAllEmsConfigsFromDb().then(() => {
       const freshClasses = getDynamicClassCodes();
       setAvailableClasses(freshClasses);
-      const freshRooms = getSavedRooms();
-      if (freshRooms && freshRooms.length > 0) {
-        setRooms(freshRooms);
-        setSelectedRoomIds((prev) => (prev.length === 0 ? [freshRooms[0].id] : prev));
-      }
     });
 
     // Restore step if URL or sessionStorage has step
@@ -568,6 +570,7 @@ export function useEmsCore() {
     printDialogOpen,
     profile,
     reorderRooms,
+    examRooms,
     roomClassMap,
     rooms,
     roomsManagerOpen,

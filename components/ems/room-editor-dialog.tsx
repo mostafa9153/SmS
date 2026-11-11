@@ -15,15 +15,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Armchair, Columns, Sparkles } from "lucide-react";
 import { EmsRoom, RoomColumnConfig } from "@/lib/ems/types";
-import { calculateRoomCapacity } from "@/lib/ems/room-storage";
+import { calculateRoomCapacity } from "@/lib/ems/room-utils";
 
-import { cleanColumnLabel } from "@/lib/ems/room-storage";
+import { cleanColumnLabel } from "@/lib/ems/room-utils";
 import { CustomSelect } from "@/components/ui/custom-select";
 
 interface RoomEditorDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (room: EmsRoom) => void;
+  /** Resolves when saved; a rejection keeps the dialog open so no edits are lost. */
+  onSave: (room: EmsRoom) => Promise<unknown>;
   initialRoom?: EmsRoom | null;
 }
 
@@ -33,6 +34,7 @@ export function RoomEditorDialog({
   onSave,
   initialRoom,
 }: RoomEditorDialogProps) {
+  const [saving, setSaving] = useState(false);
   const [roomNumber, setRoomNumber] = useState("");
   const [floor, setFloor] = useState("");
   const [building, setBuilding] = useState("");
@@ -111,8 +113,8 @@ export function RoomEditorDialog({
 
   const totalCapacity = calculateRoomCapacity(columns);
 
-  const handleSave = () => {
-    if (!roomNumber.trim()) return;
+  const handleSave = async () => {
+    if (!roomNumber.trim() || saving) return;
 
     const room: EmsRoom = {
       id: initialRoom?.id || `room-${Date.now()}`,
@@ -127,8 +129,15 @@ export function RoomEditorDialog({
       updatedAt: new Date().toISOString(),
     };
 
-    onSave(room);
-    onClose();
+    setSaving(true);
+    try {
+      await onSave(room);
+      onClose();
+    } catch {
+      // The error toast is shown by the caller; keep the dialog and its edits.
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -336,10 +345,10 @@ export function RoomEditorDialog({
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={!roomNumber.trim()}
+            disabled={!roomNumber.trim() || saving}
             className="text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
           >
-            {initialRoom ? "Update Room" : "Save Room"}
+            {saving ? "Saving..." : initialRoom ? "Update Room" : "Save Room"}
           </Button>
         </DialogFooter>
       </DialogContent>

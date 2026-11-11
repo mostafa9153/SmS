@@ -102,6 +102,7 @@ export const PERMISSION_GROUPS = [
     desc: "Sports meet, class routine & staff directory",
     items: [
       { key: "can_manage_sports", label: "Sports & Games", desc: "Create events, enrol students and record results", default: false, routes: ["/sports"], students: true },
+      { key: "can_manage_assets", label: "Assets", desc: "Count, add, move and write off school assets", default: false, routes: ["/assets"] },
       { key: "can_view_routine", label: "Class Routine", desc: "View the published class routine", default: true, routes: ["/routine/viewer"] },
       { key: "can_view_employees", label: "Employee Register", desc: "Browse teaching & non-teaching staff", default: false, routes: ["/employees"] },
     ],
